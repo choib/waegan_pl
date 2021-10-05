@@ -38,12 +38,12 @@ def sample_images(batches_done, data_loader, args, generator, criterion, Tensor)
         real_A = img_A.view(1, *img_A.shape)
         real_A = Variable(real_A.type(Tensor))
         if args.noise_in:
-            noisy = gaussian(real_A.detach(),mean=0,stddev=args.sigma)
+            noisy = gaussian(real_A,mean=0,stddev=args.sigma)
         else:
             aug_A = aug_A.view(1, *aug_A.shape)
             aug_A = Variable(aug_A.type(Tensor))
             noisy = aug_A
-        #encoded = wae_encoder(real_A)           
+             
         fake_B, latent_img, encoded, _ = generator(real_A)
         real_B = img_B.view(1, *img_B.shape)
         real_B = Variable(real_B.type(Tensor))
@@ -55,6 +55,7 @@ def sample_images(batches_done, data_loader, args, generator, criterion, Tensor)
         real_A = torch.cat([x for x in real_A.data.cpu()], -1)
         real_B = torch.cat([x for x in real_B.data.cpu()], -1)
         latent_img = torch.cat([x for x in latent_img.data.cpu()], -1)
+        enc_img = torch.cat([x for x in encoded.data.cpu()], -1)
         noisy = torch.cat([x for x in noisy.data.cpu()], -1)
         # fake_B = torch.cat(fake_B.data.cpu()[0], -1)
         # overlap = torch.cat(overlap.data.cpu()[0], -1)
@@ -68,10 +69,13 @@ def sample_images(batches_done, data_loader, args, generator, criterion, Tensor)
         gt_samples = real_B if gt_samples is None else torch.cat((gt_samples, real_B), 1)
         img_samples = fake_B if img_samples is None else torch.cat((img_samples, fake_B), 1)
         overlap_samples = overlap if overlap_samples is None else torch.cat((overlap_samples,overlap),1)
-        latent_samples = latent_img if latent_samples is None else torch.cat((latent_samples,latent_img),0)
-        enc_samples = encoded if enc_samples is None else torch.cat((enc_samples,encoded),0)
+        latent_samples = latent_img if latent_samples is None else torch.cat((latent_samples,latent_img),1)
+        enc_samples = enc_img if enc_samples is None else torch.cat((enc_samples,enc_img),1)
         no_sample += 1
-    str = "\tTest: {:<10.6e}".format(sum_err.item()/no_sample)
+        del real_A, real_B, latent_img, encoded, fake_B, noisy
+        torch.cuda.empty_cache()
+    test_loss = sum_err.item()/no_sample
+    str = "\tTest: {:<10.6e}".format(test_loss)
     sys.stdout.write(str)
     logging.info(str)
     save_image(real_samples, "images/%s_photo_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
@@ -80,4 +84,4 @@ def sample_images(batches_done, data_loader, args, generator, criterion, Tensor)
     save_image(overlap_samples, "images/%s_overlap_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
     save_image(latent_samples, "images/%s_latent_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
     save_image(enc_samples, "images/%s_encoder_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
-   
+    return test_loss
