@@ -253,7 +253,7 @@ class SaveImage(Callback):
         batches_done = pl_module.current_epoch
         pl_module.generator_unet.eval()
         val_loss= sv.sample_images(batches_done, test_loader, self.args, pl_module.generator_unet, pl_module.criterion, Tensor)
-        self.log("validation loss",val_loss)
+        self.log("validation loss",val_loss,sync_dist=True)
         return val_loss
 
 def main(args: Namespace) -> None:
