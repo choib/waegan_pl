@@ -45,11 +45,12 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from collections import OrderedDict
 from torch.cuda.amp import autocast
 
-
+import os
+os.environ["NCCL_DEBUG"] = "INFO"
 
 cuda = True if torch.cuda.is_available() else False
 #device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-#print("GPU status: %d"%torch.cuda.device_count())
+print("GPU status: %d"%torch.cuda.device_count())
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 class WaeGAN(LightningModule):
@@ -288,7 +289,7 @@ def main(args: Namespace) -> None:
         ckpt = ModelCheckpoint(dirpath=save_path,filename="waegan-{epoch:02d}")
         base = os.path.basename(ckpt.format_checkpoint_name(dict(epoch=start_epoch)))
         ckpt_path = os.path.join(save_path,base)
-        trainer = Trainer(gpus=-1,accelerator=accel,callbacks=callbacks,\
+        trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             resume_from_checkpoint=ckpt_path,precision=precision,amp_level='O2',amp_backend="apex",\
                 terminate_on_nan = True)
     else:
@@ -297,7 +298,7 @@ def main(args: Namespace) -> None:
     # ------------------------
     # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
     # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
-        trainer = Trainer(gpus=-1,accelerator=accel,callbacks=callbacks,\
+        trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             precision=precision,amp_level='O2',amp_backend="apex",\
                 terminate_on_nan = True)
 

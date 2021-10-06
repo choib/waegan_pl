@@ -55,7 +55,7 @@ class Options():
         parser.add_argument("--lateral", dest="lateral", action='store_true', help="flag to enable lateral attention layer")
         parser.add_argument("--uncertainty", dest="uncertainty", default=0.05, type=float, help="threshold to ask help")
         parser.add_argument("--precision", dest="precision", default=32, type=int, help="Half or 32bit precision")
-     
+        parser.add_argument("--gpu", dest="gpu", default=1, type=int, help="no. of gpus to use")
         return parser
     
     def gather_options(self):
