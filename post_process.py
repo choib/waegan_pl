@@ -65,7 +65,7 @@ high_hsv = [[(5,255,255), (180, 255, 255)], #_0
         [(145, 255, 255)], #_7
         [(165, 255, 255)], #_8
         [(180, 255, 255)], #_full
-        [(180, 225, 225)]] #_uncertain
+        [(180, 253, 253)]] #_uncertain
 
 iter = 1
 detail = 0.002
@@ -189,7 +189,7 @@ def update_segmentation(im_seg):
 
 def main():
     parser = argparse.ArgumentParser(description='Code for autolabeling of 9 classes')
-    parser.add_argument('--inp', help='Input file path', default="./images/1007_seg_SNUH_ICT4/140_8.png", type=str)
+    parser.add_argument('--inp', help='Input file path', default="./images/1007_seg_SNUH_ICT2/60_8.png", type=str)
     parser.add_argument('--split', help='number of image stack', default=8, type=int)
     parser.add_argument("--img_width", dest="img_width", default=384, type=int, help="width of image in pixels")
     parser.add_argument("--img_height", dest="img_height", default=256, type=int, help="height of image in pixels")
