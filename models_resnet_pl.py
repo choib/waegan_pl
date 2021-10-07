@@ -493,6 +493,7 @@ class ResNetUNet(nn.Module):
             )
 
     def forward(self, x):
+        x = x
         h = self.img_height
         w = self.img_width
         nested = self.nested
@@ -592,38 +593,39 @@ class ResNetUNet(nn.Module):
 
         #fout = self.feature_extractor(x)
         #fout = self.pooling(fout)
-        if self.enc_p == 5:
-            ep = d5
-        elif self.enc_p == 6:
-            ep = d6
-        else:
-            ep = d7
-        dout = self.pooling(ep)
-        #out = torch.cat((dout,fout),1)
-        out = dout.view(dout.size(0), -1)
-        #dout = gram_matrix(d6)
-        #v = torch.diagonal(dout, 0)
+        # if self.enc_p == 5:
+        #    ep = d5
+        # elif self.enc_p == 6:
+        #    ep = d6
+        # else:
+        #    ep = d7
+        # dout = self.pooling(ep)
+        # out = torch.cat((dout,fout),1)
+        # out = dout.view(dout.size(0), -1)
+        # dout = gram_matrix(d6)
+        # v = torch.diagonal(dout, 0)
         
-        #eout = self.pooling1d(v)
-        #eout = v
-        #eout = self.pooling(d6)
-        #(b, ch, hw) = eout.size()
-        #fout = torch.zeros_like(eout[:,0,:])
-        #for i in range(ch):
+        # eout = self.pooling1d(v)
+        # eout = v
+        # eout = self.pooling(d6)
+        # ( b, ch, hw) = eout.size()
+        # fout = torch.zeros_like(eout[:,0,:])
+        # for i in range(ch):
         #    ieout = eout[:,i,:]
         #    fout += ieout
         #eout = fout/ch 
-        eout = self.fc(out)
+        #eout = self.fc(out)
         
-        l6 = self.critic(eout)
+        #l6 = self.critic(eout)
         #z0 = self.fc0(out).view(out.size(0), 1, h , w )
         #z0 = gram_matrix(ep)
         z0 = gram_matrix(d7)
         z1 = gram_matrix(d6)
         z2 = gram_matrix(d5)
+        fout = self.final(u6)
         #z0 = z.view(z.size(0),1,z.size(1),-1)
         #return self.final(u6), z0, eout, l6
-        return self.final(u6), z0, z1, z2
+        return fout, z0, z1, z2
 
 
 class Print(nn.Module):
@@ -678,21 +680,34 @@ class MultiDiscriminator(nn.Module):
                     
                 ),
             )
-        # for m in self.models:
-        #     m.cuda()
-    
+        
+        # self.model = nn.Sequential(
+        #             *discriminator_block(channels, 64, normalize=False),
+        #             *discriminator_block(64, 128),
+        #             *discriminator_block(128, 256),
+        #             *discriminator_block(256, 512),
+        #             nn.Conv2d(512, 1 , 3 , padding=1),
+        #             #Print(),
+        #             nn.Flatten(),
+        #             #Print(),
+        #             nn.Linear(16*24,1),
+        #             #Print(),
+                    
+        #         )
     def forward(self, x):
         # total = sum([m(x) for m in self.models])
         # new_x = x
-        # new_x = new_x.type_as(x)
+        x = x
         # print(type(x),type(new_x))
         total = [m(x) for m in self.models]
         total = torch.stack(total)
         return total
-
+        # return self.model(x)
     def compute_out(self,x):
+        x = x
         total = sum([m(x) for m in self.models])
         return total
+        #return self.model(x)
 
        
     

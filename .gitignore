@@ -4,5 +4,6 @@ save/
 logparse/
 data_prep/
 images/
+lightning_logs/
 callback_pl.py
-
+__pycache__

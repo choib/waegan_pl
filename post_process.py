@@ -8,9 +8,14 @@ from PIL import Image
 #color_code={"T_O":(255,64,0),"T_C":(64,0,255), "T_H":(0,255,64)} # RGB
 #color_code=[(0,64,255),(255,0,64), (64,255,0)] # BGR
 #color_code=[(255,64,0),(64,0,255), (0,255,64)] # RGB
-color_code=[(255,0,0),(0,0,255), (0,255,0)] # RGB
-class_clr = ["#ff4000","#4000ff","#00ff40"]
-
+# color_code=[(255,0,0),(0,0,255), (0,255,0)] # RGB
+# class_clr = ["#ff4000","#4000ff","#00ff40"]
+color_code= [(0,255,255), (20,255,255), (40,255,255),
+            (60,255,255), (80,255,255), (100,255,255),
+            (120,255,255),(140,255,255), (160,255,255)] 
+class_clr = ["#ff0000","#ffaa00","#aaff00",
+            "#00ff00","#00ffaa","#00aaff",
+            "#0000ff","#aa00ff","#ff00aa"]
 # low_HSV = {"T_O":[(0, 100, 100),(170, 100, 100)],
 #             "T_C":[(110, 100, 100)],
 #             "T_H":[(90, 100, 100),(130, 100, 100)],
@@ -21,22 +26,51 @@ class_clr = ["#ff4000","#4000ff","#00ff40"]
 #             "T_H":[(110, 255, 255),(150, 255, 255)],
 #             "full":[(180, 255, 255)],
 #             "uncertain":[(180, 225, 225)]}
-
-low_hsv = [[(0, 100, 100),(170, 100, 100)],
-        [(110, 100, 100)],
-        [(90, 100, 100),(130, 100, 100),(55,100,100)],
-        [(0, 50, 50)],
-        [(0, 50, 50)]]
-high_hsv = [[(10, 255, 255),(180, 255, 255)],
-        [(130, 255, 255)],
-        [(110, 255, 255),(150, 255, 255),(75,255,255)],
-        [(180, 255, 255)],
-        [(180, 225, 225)]]
+# low_hsv =  [[(47, 100, 100)],
+#     [(85, 100, 100)],
+#     [(100, 100, 100)],
+#     [(122, 100, 100)],
+#     [(25, 100, 100)],
+#     [(0, 100, 100),(175, 100, 100)],
+#     [(145, 100, 100)],
+#     [(0, 50, 50)],    
+#     [(0, 50, 50)]]
+# high_hsv = [[(57, 255, 255)],
+#     [(95, 255, 255)],
+#     [(110, 255, 255)],
+#     [(132, 255, 255)],
+#     [(35, 255, 255)],
+#     [(5,255,255), (180, 255, 255)],
+#     [(155, 255, 255)],
+#     [(180, 255, 255)],
+#     [(180, 225, 225)]]
+low_hsv = [[(0, 100, 100),(175, 100, 100)], #_0
+        [(15, 100, 100)], #_1
+        [(35, 100, 100)], #_2
+        [(55, 100, 100)], #_3
+        [(75, 100, 100)], #_4
+        [(95, 100, 100)], #_5
+        [(115, 100, 100)], #_6
+        [(135, 100, 100)], #_7
+        [(155, 100, 100)], #_8
+        [(0, 50, 50)], #_full
+        [(0, 50, 50)]] #_uncertaim
+high_hsv = [[(5,255,255), (180, 255, 255)], #_0
+        [(25, 255, 255)], #_1
+        [(45, 255, 255)], #_2 
+        [(65, 255, 255)], #_3
+        [(85, 255, 255)], #_4
+        [(105, 255, 255)], #_5
+        [(125, 255, 255)], #_6
+        [(145, 255, 255)], #_7
+        [(165, 255, 255)], #_8
+        [(180, 255, 255)], #_full
+        [(180, 225, 225)]] #_uncertain
 
 iter = 1
 detail = 0.002
-no_class = 3
-call_help = 2
+no_class = 9
+call_help = 9
 img_h, img_w, img_d = 256, 384, 3
 
 
@@ -106,7 +140,8 @@ def draw_pic(key,polygons,args):
     return src
 
 def save_pic(src,picpath,args):
-    #src = cv.cvtColor(src, cv.COLOR_BGRA2RGBA)
+    bgrimg = cv.cvtColor(src, cv.COLOR_HSV2BGR)
+    src = cv.cvtColor(bgrimg, cv.COLOR_BGRA2RGBA)
     cv.imwrite(picpath, cv.cvtColor(src, cv.COLOR_BGR2RGB))
 
 def critic_segmentation(im_seg):
@@ -153,11 +188,16 @@ def update_segmentation(im_seg):
     return full_area, full_cnt
 
 def main():
-    parser = argparse.ArgumentParser(description='Code for autolabeling of 3 classes')
-    parser.add_argument('--inp', help='Input file path', default="../mteg5results/539_10.png", type=str)
-    parser.add_argument('--split', help='number of image stack', default=10, type=int)
+    parser = argparse.ArgumentParser(description='Code for autolabeling of 9 classes')
+    parser.add_argument('--inp', help='Input file path', default="./images/1007_seg_SNUH_ICT4/140_8.png", type=str)
+    parser.add_argument('--split', help='number of image stack', default=8, type=int)
+    parser.add_argument("--img_width", dest="img_width", default=384, type=int, help="width of image in pixels")
+    parser.add_argument("--img_height", dest="img_height", default=256, type=int, help="height of image in pixels")
+    parser.add_argument("--n_channel", dest="n_channel", default=3, type=int, help="channels in the input data")
+    parser.add_argument("--val_target", dest="val_target", default='test', choices=['train','test','user','update'], type= str, help="target dataset to validation")
+        
     args = parser.parse_args()
-
+    
     inp = os.path.relpath("".join(args.inp))
     base = os.path.splitext(args.inp)[0]
 
@@ -173,10 +213,11 @@ def main():
 
         if full_area > 1e-3:
             #uncertainty = uncertain_area/full_area
-            polygon = save_contour(full_cnt,uncertainty,max_index,jsonpath)
+            polygon = save_contour(full_cnt,uncertainty,max_index,jsonpath,args)
             key = max_index if uncertainty < 0.5 else call_help
             print("{} uncertainty: {}\tclass: {}\t{}".format(i,uncertainty,key,max_index))
-            save_pic(color_code[key],polygon,picpath)
+            src = draw_pic(key,polygon,args)
+            save_pic(src,picpath,args)
 
 if __name__ == "__main__":
     main()
