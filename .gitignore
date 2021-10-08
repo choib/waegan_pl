@@ -5,4 +5,5 @@ logparse/
 data_prep/
 images/
 callback_pl.py
-
+*.pyc
+lightning_logs/
