@@ -48,22 +48,22 @@ low_hsv = [[(0, 100, 100),(175, 100, 100)], #_0
         [(15, 100, 100)], #_1
         [(35, 100, 100)], #_2
         [(55, 100, 100)], #_3
-        [(75, 100, 100)], #_4
-        [(95, 100, 100)], #_5
+        [(70, 100, 100)], #_4
+        [(90, 100, 100)], #_5
         [(115, 100, 100)], #_6
-        [(135, 100, 100)], #_7
-        [(155, 100, 100)], #_8
+        [(130, 100, 100)], #_7
+        [(25, 100, 100)], #_8
         [(0, 50, 50)], #_full
         [(0, 50, 50)]] #_uncertaim
 high_hsv = [[(5,255,255), (180, 255, 255)], #_0
         [(25, 255, 255)], #_1
         [(45, 255, 255)], #_2 
         [(65, 255, 255)], #_3
-        [(85, 255, 255)], #_4
-        [(105, 255, 255)], #_5
+        [(90, 255, 255)], #_4
+        [(110, 255, 255)], #_5
         [(125, 255, 255)], #_6
-        [(145, 255, 255)], #_7
-        [(165, 255, 255)], #_8
+        [(150, 255, 255)], #_7
+        [(35, 255, 255)], #_8
         [(180, 255, 255)], #_full
         [(180, 253, 253)]] #_uncertain
 
@@ -189,7 +189,7 @@ def update_segmentation(im_seg):
 
 def main():
     parser = argparse.ArgumentParser(description='Code for autolabeling of 9 classes')
-    parser.add_argument('--inp', help='Input file path', default="./images/1007_seg_SNUH_ICT2/60_8.png", type=str)
+    parser.add_argument('--inp', help='Input file path', default="/home/mteg-vas/nisan/workspace/wgan_git/WGAN/images/10_6_seg_5/506_8.png", type=str)
     parser.add_argument('--split', help='number of image stack', default=8, type=int)
     parser.add_argument("--img_width", dest="img_width", default=384, type=int, help="width of image in pixels")
     parser.add_argument("--img_height", dest="img_height", default=256, type=int, help="height of image in pixels")
