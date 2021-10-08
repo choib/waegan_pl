@@ -46,11 +46,11 @@ from collections import OrderedDict
 from torch.cuda.amp import autocast
 
 import os
-os.environ["NCCL_DEBUG"] = "INFO"
+#os.environ["NCCL_DEBUG"] = "INFO"
 
 cuda = True if torch.cuda.is_available() else False
 #device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-print("GPU status: %d"%torch.cuda.device_count())
+#print("GPU status: %d"%torch.cuda.device_count())
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 class WaeGAN(LightningModule):
@@ -69,16 +69,14 @@ class WaeGAN(LightningModule):
             self.one = torch.tensor(1,dtype=torch.float16).to(self.device)
         else:
             self.one = torch.tensor(1,dtype=torch.float).to(self.device)
-        self.mone = -1*self.one
+        self.mone = -1*self.one#.type_as(self.one)
+        
         self.args = args
         # networks
-        self.generator_unet = ResNetUNet(args).to(self.device)
-        #self.discriminator = Discriminator_CNN(args).to(self.device)
-        self.discriminator_unet = MultiDiscriminator(args).to(self.device)
-        # for m in self.discriminator_unet.modules():
-        #     m.to(self.device)
-        self.mse_loss = nn.MSELoss().to(self.device)
-        self.criterion = pytorch_ssim.SSIM().to(self.device)
+        self.generator_unet = ResNetUNet(args)#.to(self.device)
+        self.discriminator_unet = MultiDiscriminator(args)#.to(self.device)
+        self.mse_loss = nn.MSELoss()#.to(self.device)
+        self.criterion = pytorch_ssim.SSIM()#.to(self.device)
 
     def forward(self, z):
         return self.generator_unet(z)
@@ -112,14 +110,14 @@ class WaeGAN(LightningModule):
         #z = z.type_as(imgs)
         #pass
         lambda_gp = self.args.gp_lambda
-        # real_A = Variable(batch["A"],requires_grad=True).to(self.device)
-        # real_B = Variable(batch["B"],requires_grad=True).to(self.device)
-        # aug_A = Variable(batch["aug_A"],requires_grad=True).to(self.device)
-        real_A = batch["A"].to(self.device)
-        real_B = batch["B"].to(self.device)
-        aug_A = batch["aug_A"].to(self.device)
+        real_A = Variable(batch["A"],requires_grad=True)#.to(self.device)
+        real_B = Variable(batch["B"],requires_grad=True)#.to(self.device)
+        aug_A = Variable(batch["aug_A"],requires_grad=True)#.to(self.device)
+        # real_A = batch["A"].to(self.device)
+        # real_B = batch["B"].to(self.device)
+        # aug_A = batch["aug_A"].to(self.device)
         if self.args.noise_in:
-            noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma).to(self.device)
+            noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)#.to(self.device)
         else:
             noisy = aug_A
         # train generator
@@ -127,24 +125,29 @@ class WaeGAN(LightningModule):
             frozen_params(self.discriminator_unet)
             free_params(self.generator_unet)
 
+            
+            
+            #with torch.no_grad():
             generated, encoded_, e1_, e2_ = self(real_A)
             noised, z_, z1_, z2_ = self(noisy)
-            
+            generated = generated.type_as(real_B)
+            noised = noised.type_as(real_B)
             style_loss = (self.args.style_ratio)*(1 - self.criterion(real_B, generated))\
-                  + (1-self.args.style_ratio)* self.mse_loss(real_B, generated)
+                + (1-self.args.style_ratio)* self.mse_loss(real_B, generated)
             #enc_loss = args.k_wass *(torch.mean(d_encoded) - torch.mean(d_noise))
             #enc_loss = args.k_wass *(torch.mean(encoded_ - z_)) if args.gram else 0
             enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
-                    0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if self.args.gram else 0
+                0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if self.args.gram else 0
 
-            
-            with autocast():
-                h_loss = self.args.k_wass*self.discriminator_unet.forward(generated)
-                wass_loss = -torch.mean(h_loss)
-           
-            self.log("style loss",style_loss)
-           
+            h_loss = self.args.k_wass*self.discriminator_unet(generated)
+            wass_loss = -torch.mean(h_loss)
             g_loss = style_loss + enc_loss + wass_loss if self.args.gram else (style_loss + wass_loss)
+
+            self.log("style loss",style_loss)
+            #enc_loss.requires_grad = True
+            #h_loss.requires_grad = True
+            #wass_loss.requires_grad = True
+            #g_loss.requires_grad = True
             self.log("g_loss",g_loss, sync_dist=True)
             self.log("enc loss",enc_loss)
             self.log("wass loss",wass_loss)
@@ -168,26 +171,28 @@ class WaeGAN(LightningModule):
 
             generated, encoded_, e1_, e2_ = self(real_A)
             noised, z_, z1_, z2_ = self(noisy)
-            # generated = generated.to(self.device)
-            # noised = noised.to(self.device)
-            #enc_loss = args.k_wass * (torch.mean(d_encoded) - torch.mean(d_noise))
-            #enc_loss = args.k_wass * (torch.mean(encoded_ - z_)) if args.gram else 0
+            generated = generated.type_as(real_B)
+            noised = noised.type_as(real_B)
+               
             enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
                     0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if args.gram else 0
-            self.log("enc loss",enc_loss)        
-            with autocast():
-                f_loss = self.args.k_wass*self.discriminator_unet.forward(real_B)
-                h_loss = self.args.k_wass*self.discriminator_unet.forward(generated)
-                d_loss = torch.mean(f_loss) - torch.mean(h_loss) #wasserstein loss
             
+            f_loss = self.args.k_wass*self.discriminator_unet(real_B)
+            h_loss = self.args.k_wass*self.discriminator_unet(generated)
+            d_loss = torch.mean(f_loss) - torch.mean(h_loss) #wasserstein loss
             if self.args.clip_weight:
-                d_loss -= enc_loss if self.args.gram else 0
+                d_loss += enc_loss if self.args.gram else 0
                 for p in self.discriminator_unet.parameters():
-        	        p.data.clamp_(-self.args.clip_value, self.args.clip_value)
+                    p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             else:
                 gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
-                d_loss -= enc_loss if self.args.gram else 0
-                d_loss += lambda_gp* self.args.k_wass* gradient_penalty
+                d_loss += enc_loss if self.args.gram else 0
+                d_loss -= lambda_gp* self.args.k_wass* gradient_penalty
+            self.log("enc loss",enc_loss) 
+            #enc_loss.requires_grad = True
+            #f_loss.requires_grad = True
+            #h_loss.requires_grad = True
+            #d_loss.requires_grad = True
             self.log("discriminator loss",d_loss, sync_dist=True)
 
 
@@ -254,7 +259,7 @@ class SaveImage(Callback):
         batches_done = pl_module.current_epoch
         pl_module.generator_unet.eval()
         val_loss= sv.sample_images(batches_done, test_loader, self.args, pl_module.generator_unet, pl_module.criterion, Tensor)
-        self.log("validation loss",val_loss)
+        self.log("validation loss",val_loss,sync_dist=True)
         return val_loss
 
 def main(args: Namespace) -> None:
@@ -291,7 +296,8 @@ def main(args: Namespace) -> None:
         ckpt_path = os.path.join(save_path,base)
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             resume_from_checkpoint=ckpt_path,precision=precision,amp_level='O2',amp_backend="apex",\
-                terminate_on_nan = True)
+                terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
+                    sync_batchnorm=True)
     else:
     # ------------------------
     # 2 INIT TRAINER
@@ -300,7 +306,8 @@ def main(args: Namespace) -> None:
     # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             precision=precision,amp_level='O2',amp_backend="apex",\
-                terminate_on_nan = True)
+                terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
+                    sync_batchnorm=True)
 
     # ------------------------
     # 3 START TRAINING

@@ -4,6 +4,11 @@ save/
 logparse/
 data_prep/
 images/
+lightning_logs/
 callback_pl.py
+<<<<<<< HEAD
 *.pyc
 lightning_logs/
+=======
+__pycache__
+>>>>>>> 2a8974a0ba58e813504a2923f7797d1d826444c1
