@@ -19,11 +19,11 @@ class Options():
         parser.add_argument("--train_max", dest="train_max", default=500, type= int, help="maximun number of batches for training")
         parser.add_argument("--no_save", dest="save", action='store_false', help="flag not to save weights at each epoch of training if True" )
         parser.add_argument("--validate", dest="train", action='store_false', help="flag not to train networks and load networks from saved weights" )
-        parser.add_argument("--dataset_name", dest="dataset", default="mteg_dataset_1", type=str, help="name of dataset")
+        parser.add_argument("--dataset", dest="dataset", default="laryngoscope", type=str, help="name of dataset")
         parser.add_argument("--img_width", dest="img_width", default=384, type=int, help="width of image in pixels")
         parser.add_argument("--img_height", dest="img_height", default=256, type=int, help="height of image in pixels")
         parser.add_argument("--epoch", dest="epoch", default=0, type=int, help="epoch to start")
-        parser.add_argument("--date", dest="date", default="0425mteg1att", type=str, help="id of saved files")
+        parser.add_argument("--date", dest="date", default="0923laryngo", type=str, help="id of saved files")
         parser.add_argument("--n_critic", dest="n_critic", default=3, type=int, help="number of skip iteration for generator")
         parser.add_argument("--DDP", dest="DDP", action='store_true', help="flag for distibuted data processing")
         parser.add_argument("--n_resblk", dest="n_resblk", default=1, type=int, help="number of resnet blocks in u-net")
@@ -31,7 +31,7 @@ class Options():
         parser.add_argument("--clip_value", dest="clip_value", default=0.01, type=float, help="float number to clip weights")
         parser.add_argument("--no_clip_weight", dest="clip_weight", action='store_false', help="flag not to apply clipping weight")
         parser.add_argument("--no_wass_metric", dest="wass_metric", action='store_false', help="flag not to apply wasserstein metric")
-        parser.add_argument("--simple", dest="resnet_torch", action='store_false', help="flag not to use torch model encoder")
+        parser.add_argument("--simple", dest="gram", action='store_false', help="flag not to count encoder loss")
         parser.add_argument("--gp_lambda", dest="gp_lambda", default= 10, type=float, help="flag not to use swish activation on encoder")
         parser.add_argument("--cpt_interval", dest="cpt_interval", default=10, type=int, help="interval of epoch to save checkpoint")
         parser.add_argument("--k_wass", dest="k_wass", default=0.1, type=float, help="A constant to multipy with wasserstein metrics")
@@ -54,6 +54,8 @@ class Options():
         parser.add_argument("--attention", dest="attention", action='store_true', help="flag to enable attention block for decoder")
         parser.add_argument("--lateral", dest="lateral", action='store_true', help="flag to enable lateral attention layer")
         parser.add_argument("--uncertainty", dest="uncertainty", default=0.05, type=float, help="threshold to ask help")
+        parser.add_argument("--precision", dest="precision", default=32, type=int, help="Half or 32bit precision")
+        parser.add_argument("--gpu", dest="gpu", default=1, type=int, help="no. of gpus to use")
         return parser
     
     def gather_options(self):
