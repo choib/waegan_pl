@@ -179,7 +179,7 @@ class WaeGAN(LightningModule):
             
             f_loss = self.args.k_wass*self.discriminator_unet(real_B)
             h_loss = self.args.k_wass*self.discriminator_unet(generated)
-            d_loss = torch.mean(f_loss) - torch.mean(h_loss) #wasserstein loss
+            d_loss = (torch.mean(f_loss) - torch.mean(h_loss)) #wasserstein loss
             if self.args.clip_weight:
                 d_loss += enc_loss if self.args.gram else 0
                 for p in self.discriminator_unet.parameters():
