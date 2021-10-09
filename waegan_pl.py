@@ -65,11 +65,12 @@ class WaeGAN(LightningModule):
         #self.b1 = b1
         #self.b2 = b2
         self.batch_size = args.batch_size
-        if args.precision==16:
-            self.one = torch.tensor(1,dtype=torch.float16).to(self.device)
-        else:
-            self.one = torch.tensor(1,dtype=torch.float).to(self.device)
-        self.mone = -1*self.one#.type_as(self.one)
+        self.one = torch.tensor(1,dtype=torch.float32)#.to(self.device)
+        # if args.precision==16:
+        #     self.one = self.one.half()
+        # else:
+        #     pass
+        self.mone = -1*self.one
         
         self.args = args
         # networks
@@ -139,10 +140,13 @@ class WaeGAN(LightningModule):
             enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
                 0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if self.args.gram else 0
 
-            h_loss = self.args.k_wass*self.discriminator_unet(generated)
+            if self.args.precision == 16:
+                h_loss = self.args.k_wass*self.discriminator_unet(generated.half())
+            else:
+                h_loss = self.args.k_wass*self.discriminator_unet(generated)
             wass_loss = -torch.mean(h_loss)
             g_loss = style_loss + enc_loss + wass_loss if self.args.gram else (style_loss + wass_loss)
-
+            g_loss = g_loss.float()
             self.log("style loss",style_loss)
             #enc_loss.requires_grad = True
             #h_loss.requires_grad = True
@@ -177,9 +181,15 @@ class WaeGAN(LightningModule):
             enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
                     0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if args.gram else 0
             
-            f_loss = self.args.k_wass*self.discriminator_unet(real_B)
-            h_loss = self.args.k_wass*self.discriminator_unet(generated)
-            d_loss = (torch.mean(f_loss) - torch.mean(h_loss)) #wasserstein loss
+            if self.args.precision == 16:
+                f_loss = self.args.k_wass*self.discriminator_unet(real_B.half())
+                h_loss = self.args.k_wass*self.discriminator_unet(generated.half())
+                d_loss = (torch.mean(f_loss) - torch.mean(h_loss)) #wasserstein loss
+            else:
+                f_loss = self.args.k_wass*self.discriminator_unet(real_B)
+                h_loss = self.args.k_wass*self.discriminator_unet(generated)
+                d_loss = (torch.mean(f_loss) - torch.mean(h_loss)) #wasserstein loss
+            d_loss = d_loss.float()
             if self.args.clip_weight:
                 d_loss += enc_loss if self.args.gram else 0
                 for p in self.discriminator_unet.parameters():
@@ -295,7 +305,7 @@ def main(args: Namespace) -> None:
         base = os.path.basename(ckpt.format_checkpoint_name(dict(epoch=start_epoch)))
         ckpt_path = os.path.join(save_path,base)
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
-            resume_from_checkpoint=ckpt_path,precision=precision,amp_level='O2',amp_backend="apex",\
+            resume_from_checkpoint=ckpt_path, precision=precision, amp_level='O1', amp_backend="apex",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
                     sync_batchnorm=True)
     else:
@@ -305,7 +315,7 @@ def main(args: Namespace) -> None:
     # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
     # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
-            precision=precision,amp_level='O2',amp_backend="apex",\
+            precision=precision,  amp_level='O1', amp_backend="apex",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
                     sync_batchnorm=True)
 
