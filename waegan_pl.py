@@ -240,7 +240,7 @@ class WaeGAN(LightningModule):
     def train_dataloader(self):
         input_shape = (self.args.n_channel, self.args.img_height, self.args.img_width)
         dataset = ImageDataset("../data/%s" % self.args.dataset, input_shape, mode='train')
-        return DataLoader(dataset, batch_size=self.args.batch_size,num_workers=7, pin_memory=True)
+        return DataLoader(dataset, batch_size=self.batch_size, pin_memory=True)
 
     def test_dataloader(self):
         input_shape = (self.args.n_channel, self.args.img_height, self.args.img_width)
@@ -307,6 +307,7 @@ def main(args: Namespace) -> None:
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             resume_from_checkpoint=ckpt_path, precision=precision, amp_level='O1', amp_backend="apex",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
+                    accumulate_grad_batches=1, auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
     else:
     # ------------------------
@@ -317,6 +318,7 @@ def main(args: Namespace) -> None:
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             precision=precision,  amp_level='O1', amp_backend="apex",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
+                    accumulate_grad_batches=1, auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
 
     # ------------------------
