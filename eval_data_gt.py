@@ -18,7 +18,8 @@ from PIL import Image
 import sys
 import logging
 import shutil
-
+import matplotlib.pyplot as plt
+import math
 def clean_dir(folder):
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
@@ -39,12 +40,15 @@ def eval_data_gt(args,generator_unet, data_loader, Tensor, criterion):
     clean_dir(json_dir)
     clean_dir(jpg_dir)
     result = []
-
+    iou_list=[]
+    not_detected=[]
     for i, batch in enumerate(data_loader):
         real_A = Variable(batch["A"].type(Tensor))
         real_B = Variable(batch["B"].type(Tensor))
         #encoded = wae_encoder(real_A)
-        generated, _, encoded, _ = generator_unet(real_A)
+        # print(i)
+        # print(real_A.shape)
+        generated, _, encoded, _ = generator_unet.forward(real_A)
         test_loss = criterion(generated, real_B)
         #sum_test += test_lossfake_B = torch.cat([x for x in fake_B.data.cpu()], -1)
         save_image(generated.detach().cpu()[0],tmp_path)
@@ -52,8 +56,35 @@ def eval_data_gt(args,generator_unet, data_loader, Tensor, criterion):
         img_cv.load()
         img_cv = img_cat = np.asarray(img_cv, dtype='uint8')
         tp, unc, area_p, cnts =pp.critic_segmentation(img_cv)
-        tp = 2 if unc > args.uncertainty else tp
+        # tp = 2 if unc > args.uncertainty else tp
+        # calculating IOU#############################################################################
+        img_cv = Image.open(tmp_path)
+        img_cv.load()
+        predicted_mask = np.asarray(img_cv, dtype='uint8')
+        save_image(real_B.detach().cpu()[0], tmp_path)
+        img_cv = Image.open(tmp_path)
+        img_cv.load()
+        real_mask = np.asarray(img_cv, dtype='uint8')
+        intersection = np.logical_and(real_mask, predicted_mask)
+        union = np.logical_or(real_mask, predicted_mask)
+        iou = np.sum(intersection) / np.sum(union)
+        iou_list.append(iou)
+        if iou==0:
+            not_detected.append(iou)
+            # plt.imshow(np.squeeze(real_mask), cmap='gray')
+            # plt.imshow(np.squeeze(predicted_mask), cmap='jet', alpha=0.5)
+            plt.imshow(real_mask)
+            plt.show()
+            plt.imshow(predicted_mask)
+            plt.show()
+        print(iou)
+        # print(np.sum(union))
+        # print(np.sum(intersection))
+        # plt.imshow(np.squeeze(real_mask), cmap='gray')
+        # plt.imshow(np.squeeze(predicted_mask), cmap='jet', alpha=0.5)
+        # plt.show()
 
+        #############################################################################################
         img_cv = save_image(real_B.detach().cpu()[0],tmp_path)
         img_cv = Image.open(tmp_path)
         img_cv.load()
@@ -61,7 +92,8 @@ def eval_data_gt(args,generator_unet, data_loader, Tensor, criterion):
         img_cat = cv.vconcat([img_cat, img_cv])
         t, _, area_gt, _ = pp.critic_segmentation(img_cv)
         a_ratio= area_p/area_gt if area_gt > 0 else 0
-
+        print(tp)
+        print(t==tp)
         pathA = batch["pathA"]
         pathB = batch["pathB"]
         base = os.path.splitext(pathB[0])[0]
@@ -80,7 +112,14 @@ def eval_data_gt(args,generator_unet, data_loader, Tensor, criterion):
         #logging.info("File A:{} \tTest Loss: {:<10.6e}\n".format("".join(pathA), test_loss.data.item()))
         del real_A, real_B, encoded, generated, pathA, pathB, test_loss
         torch.cuda.empty_cache()
-    
+    # print results from IOU#################################################################################
+    iou_list = [0 if math.isnan(x) else x for x in iou_list]
+    print("average IOU=%2f"%(sum(iou_list)/len(iou_list)))
+    print("Total images=%2f"%(len(data_loader)))
+    print("Total detected images=%2f"%(len(data_loader)-len(not_detected)))
+    print("Total not detected images=%2f"%len(not_detected))
+    print("average IOU of detected images=%2f"%(sum(iou_list)/(len(iou_list)-len(not_detected))))
+    #############################################################################################
     mean_test = sum_test / len(data_loader)
     str = "mean mse: {}\n".format(mean_test)
     sys.stdout.write(str)
