@@ -287,7 +287,7 @@ def main(args: Namespace) -> None:
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             resume_from_checkpoint=ckpt_path, precision=precision, amp_level='O1', amp_backend="native",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
-                    gradient_clip_val=0.25,auto_scale_batch_size="binsearch",\
+                    gradient_clip_val=0.5,auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
     else:
     # ------------------------
@@ -298,7 +298,7 @@ def main(args: Namespace) -> None:
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
             precision=precision,  amp_level='O1', amp_backend="native",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
-                    gradient_clip_val=0.25, auto_scale_batch_size="binsearch",\
+                    gradient_clip_val=0.5, auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
 
     # ------------------------
