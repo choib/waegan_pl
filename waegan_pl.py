@@ -123,8 +123,9 @@ class WaeGAN(LightningModule):
             generated, encoded_, e1_, e2_ = self(real_A)
             noised, z_, z1_, z2_ = self(noisy)
             
+            m_loss = self.mse_loss(real_B, generated)
             style_loss = (self.args.style_ratio)*(1 - self.criterion(real_B, generated))\
-                + (1-self.args.style_ratio)* self.mse_loss(real_B, generated)
+                + (1-self.args.style_ratio)* m_loss
             
             if (self.args.gram):
                 enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
@@ -135,6 +136,7 @@ class WaeGAN(LightningModule):
             g_loss = style_loss + enc_loss + wass_loss if self.args.gram else (style_loss + wass_loss)
            
             self.log("style loss",style_loss)
+            self.log("mse loss",m_loss)
             self.log("g_loss",g_loss, sync_dist=True)
             if self.args.gram:
                 self.log("enc loss",enc_loss)
@@ -258,7 +260,7 @@ def main(args: Namespace) -> None:
         Tensor = torch.cuda.HalfTensor if cuda else torch.FloatTensor
     else:
         Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
- 
+    o_level = 'O2'
     # ------------------------
     # 1 INIT LIGHTNING MODEL
     # ------------------------
@@ -266,7 +268,7 @@ def main(args: Namespace) -> None:
     dataset = args.dataset
     date = args.date
     save_path = "./save/{dataset}_{date}".format(dataset=dataset,date=date)
-    checkpoint_callback = ModelCheckpoint(monitor="g_loss", dirpath=save_path,
+    checkpoint_callback = ModelCheckpoint(monitor="mse loss", dirpath=save_path,
         filename="waegan-{epoch:02d}",
         save_top_k=3,
         mode="min",)
@@ -285,7 +287,7 @@ def main(args: Namespace) -> None:
         base = os.path.basename(ckpt.format_checkpoint_name(dict(epoch=start_epoch)))
         ckpt_path = os.path.join(save_path,base)
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
-            resume_from_checkpoint=ckpt_path, precision=precision, amp_level='O1', amp_backend="native",\
+            resume_from_checkpoint=ckpt_path, precision=precision, amp_level= o_level, amp_backend="native",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
                     gradient_clip_val=0.5,auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
@@ -296,7 +298,7 @@ def main(args: Namespace) -> None:
     # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
     # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
-            precision=precision,  amp_level='O1', amp_backend="native",\
+            precision=precision,  amp_level=o_level, amp_backend="native",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
                     gradient_clip_val=0.5, auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
