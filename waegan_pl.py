@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.utils import save_image, make_grid
 from torch.utils.tensorboard import SummaryWriter
+from torch.cuda.amp import autocast
 
 from tqdm import tqdm
 import numpy as np
@@ -43,7 +44,6 @@ from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.callbacks import ModelCheckpoint
 from collections import OrderedDict
-from torch.cuda.amp import autocast
 
 import os
 #os.environ["NCCL_DEBUG"] = "INFO"
@@ -65,12 +65,12 @@ class WaeGAN(LightningModule):
         #self.b1 = b1
         #self.b2 = b2
         self.batch_size = args.batch_size
-        self.one = torch.tensor(1,dtype=torch.float32)#.to(self.device)
+        self.one = torch.tensor(1,dtype=torch.float)#.to(self.device)
         # if args.precision==16:
         #     self.one = self.one.half()
         # else:
         #     pass
-        self.mone = -1*self.one
+        # self.mone = -1*self.one
         
         self.args = args
         # networks
@@ -106,17 +106,12 @@ class WaeGAN(LightningModule):
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         opt_g, opt_d = self.optimizers(use_pl_optimizer=True)
-        # sample noise
-        #z = torch.randn(imgs.shape[0], self.latent_dim)
-        #z = z.type_as(imgs)
-        #pass
+        
         lambda_gp = self.args.gp_lambda
         real_A = Variable(batch["A"],requires_grad=True)#.to(self.device)
         real_B = Variable(batch["B"],requires_grad=True)#.to(self.device)
         aug_A = Variable(batch["aug_A"],requires_grad=True)#.to(self.device)
-        # real_A = batch["A"].to(self.device)
-        # real_B = batch["B"].to(self.device)
-        # aug_A = batch["aug_A"].to(self.device)
+        
         if self.args.noise_in:
             noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)#.to(self.device)
         else:
@@ -126,34 +121,24 @@ class WaeGAN(LightningModule):
             frozen_params(self.discriminator_unet)
             free_params(self.generator_unet)
 
-            
-            
-            #with torch.no_grad():
             generated, encoded_, e1_, e2_ = self(real_A)
             noised, z_, z1_, z2_ = self(noisy)
-            generated = generated.type_as(real_B)
-            noised = noised.type_as(real_B)
+            
             style_loss = (self.args.style_ratio)*(1 - self.criterion(real_B, generated))\
                 + (1-self.args.style_ratio)* self.mse_loss(real_B, generated)
-            #enc_loss = args.k_wass *(torch.mean(d_encoded) - torch.mean(d_noise))
-            #enc_loss = args.k_wass *(torch.mean(encoded_ - z_)) if args.gram else 0
-            enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
-                0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if self.args.gram else 0
+            
+            if (self.args.gram):
+                enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
+                    0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) 
 
-            if self.args.precision == 16:
-                h_loss = self.args.k_wass*self.discriminator_unet(generated.half())
-            else:
-                h_loss = self.args.k_wass*self.discriminator_unet(generated)
+            h_loss = self.args.k_wass*self.discriminator_unet(generated)
             wass_loss = -torch.mean(h_loss)
             g_loss = style_loss + enc_loss + wass_loss if self.args.gram else (style_loss + wass_loss)
             g_loss = g_loss.float()
             self.log("style loss",style_loss)
-            #enc_loss.requires_grad = True
-            #h_loss.requires_grad = True
-            #wass_loss.requires_grad = True
-            #g_loss.requires_grad = True
             self.log("g_loss",g_loss, sync_dist=True)
-            self.log("enc loss",enc_loss)
+            if self.args.gram:
+                self.log("enc loss",enc_loss)
             self.log("wass loss",wass_loss)
 
             tqdm_dict = {'g_loss': g_loss}
@@ -175,21 +160,15 @@ class WaeGAN(LightningModule):
 
             generated, encoded_, e1_, e2_ = self(real_A)
             noised, z_, z1_, z2_ = self(noisy)
-            generated = generated.type_as(real_B)
-            noised = noised.type_as(real_B)
-               
-            enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
-                    0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) if args.gram else 0
+
+            if (self.args.gram):   
+                enc_loss = self.args.k_wass * (self.mse_loss(encoded_ , z_)+\
+                    0.5*self.mse_loss(e1_,z1_) + 0.25*self.mse_loss(e2_,z2_)) 
             
-            if self.args.precision == 16:
-                f_loss = self.args.k_wass*self.discriminator_unet(real_B.half())
-                h_loss = self.args.k_wass*self.discriminator_unet(generated.half())
-                d_loss = (torch.mean(f_loss) - torch.mean(h_loss)) #wasserstein loss
-            else:
-                f_loss = self.args.k_wass*self.discriminator_unet(real_B)
-                h_loss = self.args.k_wass*self.discriminator_unet(generated)
-                d_loss = (torch.mean(f_loss) - torch.mean(h_loss)) #wasserstein loss
-            d_loss = d_loss.float()
+            f_loss = self.args.k_wass*self.discriminator_unet(real_B)
+            h_loss = self.args.k_wass*self.discriminator_unet(generated)
+            d_loss = (torch.mean(f_loss) - torch.mean(h_loss)).float() #wasserstein loss
+            
             if self.args.clip_weight:
                 d_loss += enc_loss if self.args.gram else 0
                 for p in self.discriminator_unet.parameters():
@@ -198,11 +177,9 @@ class WaeGAN(LightningModule):
                 gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
                 d_loss += enc_loss if self.args.gram else 0
                 d_loss -= lambda_gp* self.args.k_wass* gradient_penalty
-            self.log("enc loss",enc_loss) 
-            #enc_loss.requires_grad = True
-            #f_loss.requires_grad = True
-            #h_loss.requires_grad = True
-            #d_loss.requires_grad = True
+            if self.args.gram:
+                self.log("enc loss",enc_loss) 
+            d_loss = -d_loss.float()
             self.log("discriminator loss",d_loss, sync_dist=True)
 
 
@@ -214,14 +191,16 @@ class WaeGAN(LightningModule):
             })
             return output
 
-    def backward(self, loss, optimizer, optimizer_idx):
-        # do a custom way of backward
-        if optimizer_idx == 0:
-            #with autocast():
-            loss.backward(self.one,retain_graph=True)#.to(self.device)
-        else:
-            #with autocast():
-            loss.backward(self.mone,retain_graph=True)#.to(self.device)
+    # def backward(self, loss, optimizer, optimizer_idx):
+    #     # do a custom way of backward
+    #     with autocast():
+    #         one = torch.tensor(1, dtype=torch.float) 
+    #     if optimizer_idx == 0:
+    #         with autocast():
+    #             loss.backward(one,retain_graph=True)#.to(self.device)
+    #     else:
+    #         with autocast():
+    #             loss.backward(-1*one,retain_graph=True)#.to(self.device)
 
 
     def configure_optimizers(self):
@@ -240,7 +219,7 @@ class WaeGAN(LightningModule):
     def train_dataloader(self):
         input_shape = (self.args.n_channel, self.args.img_height, self.args.img_width)
         dataset = ImageDataset("../data/%s" % self.args.dataset, input_shape, mode='train')
-        return DataLoader(dataset, batch_size=self.batch_size, pin_memory=True)
+        return DataLoader(dataset, batch_size=self.args.batch_size, num_workers=24, pin_memory=True)
 
     def test_dataloader(self):
         input_shape = (self.args.n_channel, self.args.img_height, self.args.img_width)
@@ -287,9 +266,9 @@ def main(args: Namespace) -> None:
     date = args.date
     save_path = "./save/{dataset}_{date}".format(dataset=dataset,date=date)
     checkpoint_callback = ModelCheckpoint(monitor="g_loss", dirpath=save_path,
-    filename="waegan-{epoch:02d}",
-    save_top_k=3,
-    mode="min",)
+        filename="waegan-{epoch:02d}",
+        save_top_k=3,
+        mode="min",)
     saveim_callback = SaveImage(args)
     precision = args.precision
     accel = "ddp" if args.DDP else None
@@ -305,9 +284,9 @@ def main(args: Namespace) -> None:
         base = os.path.basename(ckpt.format_checkpoint_name(dict(epoch=start_epoch)))
         ckpt_path = os.path.join(save_path,base)
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
-            resume_from_checkpoint=ckpt_path, precision=precision, amp_level='O1', amp_backend="apex",\
+            resume_from_checkpoint=ckpt_path, precision=precision, amp_level='O1', amp_backend="native",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
-                    accumulate_grad_batches=1, auto_scale_batch_size="binsearch",\
+                    gradient_clip_val=0.25,auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
     else:
     # ------------------------
@@ -316,9 +295,9 @@ def main(args: Namespace) -> None:
     # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
     # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
         trainer = Trainer(gpus=args.gpu,accelerator=accel,callbacks=callbacks,\
-            precision=precision,  amp_level='O1', amp_backend="apex",\
+            precision=precision,  amp_level='O1', amp_backend="native",\
                 terminate_on_nan = True, auto_select_gpus=True, max_epochs= args.train_max,\
-                    accumulate_grad_batches=1, auto_scale_batch_size="binsearch",\
+                    gradient_clip_val=0.25, auto_scale_batch_size="binsearch",\
                     sync_batchnorm=True)
 
     # ------------------------

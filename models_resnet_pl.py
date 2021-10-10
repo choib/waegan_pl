@@ -198,7 +198,7 @@ class UNetDown(nn.Module):
 
 
 class UNetUp(nn.Module):
-    def __init__(self, in_size, out_size, normalize=True,dropout=0.0, relu_act=True, swish_act=False, full_style=False):
+    def __init__(self, in_size, out_size, normalize=True, dropout=0.0, relu_act=True, swish_act=False, full_style=False):
         super(UNetUp, self).__init__()
         layers = [nn.Upsample(scale_factor=2)]
         layers.append(nn.Conv2d(in_size, out_size, 3, stride=1, padding=1, bias=False))
@@ -283,7 +283,7 @@ class ResNetUNet(nn.Module):
         self.batch_size = args.batch_size
         #self.img_add = args.img_add
         self.single8 = args.single8
-        normalize = True#args.normalize
+        normalize = False#args.normalize
         bn = True#args.res_bn
         up_relu = True#args.relu_act
         res_relu = True#args.res_relu
