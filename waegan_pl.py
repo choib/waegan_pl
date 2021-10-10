@@ -105,7 +105,6 @@ class WaeGAN(LightningModule):
         return gradient_penalty
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        opt_g, opt_d = self.optimizers(use_pl_optimizer=True)
         
         lambda_gp = self.args.gp_lambda
         real_A = Variable(batch["A"],requires_grad=True)#.to(self.device)
@@ -134,13 +133,14 @@ class WaeGAN(LightningModule):
             h_loss = self.args.k_wass*self.discriminator_unet(generated)
             wass_loss = -torch.mean(h_loss)
             g_loss = style_loss + enc_loss + wass_loss if self.args.gram else (style_loss + wass_loss)
-            g_loss = g_loss.float()
+           
             self.log("style loss",style_loss)
             self.log("g_loss",g_loss, sync_dist=True)
             if self.args.gram:
                 self.log("enc loss",enc_loss)
             self.log("wass loss",wass_loss)
 
+            g_loss = g_loss.float()
             tqdm_dict = {'g_loss': g_loss}
             output = OrderedDict({
                 'loss': g_loss,
@@ -167,7 +167,7 @@ class WaeGAN(LightningModule):
             
             f_loss = self.args.k_wass*self.discriminator_unet(real_B)
             h_loss = self.args.k_wass*self.discriminator_unet(generated)
-            d_loss = (torch.mean(f_loss) - torch.mean(h_loss)).float() #wasserstein loss
+            d_loss = (torch.mean(f_loss) - torch.mean(h_loss))#wasserstein loss
             
             if self.args.clip_weight:
                 d_loss += enc_loss if self.args.gram else 0
@@ -179,11 +179,12 @@ class WaeGAN(LightningModule):
                 d_loss -= lambda_gp* self.args.k_wass* gradient_penalty
             if self.args.gram:
                 self.log("enc loss",enc_loss) 
-            d_loss = -d_loss.float()
+            
             self.log("discriminator loss",d_loss, sync_dist=True)
-
+            
 
             tqdm_dict = {'d_loss': d_loss}
+            d_loss = -d_loss.float()
             output = OrderedDict({
                 'loss': d_loss,
                 'progress_bar': tqdm_dict,
