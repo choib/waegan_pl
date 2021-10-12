@@ -190,6 +190,8 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
     gt_c = []
     predicted_mask = np.zeros([img_h, img_w, img_d],dtype=np.uint8)
     real_mask = np.zeros([img_h, img_w, img_d],dtype=np.uint8)
+    predicted_bb = np.zeros([img_h, img_w, img_d],dtype=np.uint8)
+    real_bb = np.zeros([img_h, img_w, img_d],dtype=np.uint8)
     for j in range(len(low_hsv[id])):
         seg_cnts, s_area = cnts_extract(seg_HSV, low_hsv[id][j], high_hsv[id][j], dilate=True, erode=True)
         seg_area += s_area
@@ -202,6 +204,8 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
                 epsilon = cv.arcLength(cnt, True) * detail
                 approx_poly = cv.approxPolyDP(cnt, epsilon, True)
                 cv.fillPoly(predicted_mask, pts =[approx_poly], color=(255,255,255))
+                (x,y,w,h) = cv.boundingRect(cnt)
+                cv.rectangle(predicted_bb, (x, y), (w, h), (255, 255, 255), -1)
                 #predicted_mask = cv.add(predicted_mask,draw_pic(id, approx_poly, args))
         (h,s,v) = high_hsv[id][j]
         u_h_hsv = (h,253,253)
@@ -223,7 +227,9 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
                 epsilon = cv.arcLength(cnt, True) * detail
                 approx_poly = cv.approxPolyDP(cnt, epsilon, True)
                 cv.fillPoly(real_mask, pts =[approx_poly], color=(255,255,255))
-                #real_mask = cv.add(real_mask, draw_pic(id, approx_poly, args))
+                (x,y,w,h) = cv.boundingRect(cnt)
+                cv.rectangle(real_bb, (x, y), (w, h), (255, 255, 255), -1)
+           #real_mask = cv.add(real_mask, draw_pic(id, approx_poly, args))
         if DEBUG:
             pic2path = os.path.relpath(f"./tmp/gt_{id}_{j}.jpg")
             save_pic(real_mask,pic2path,args)    
@@ -240,6 +246,14 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
     ret, real_mask = cv.threshold(real_mask, 5, 255, cv.THRESH_BINARY)
     full_mask = np.ones(real_mask.shape,dtype=np.uint8)
     intersection = cv.bitwise_and(real_mask, predicted_mask, mask=full_mask)
+    _, contours, hierarchy = cv.findContours(intersection, cv.RETR_CCOMP,cv.CHAIN_APPROX_SIMPLE)
+    int_area = 0
+    if len(contours) > 0:
+        for cnt in contours:
+            #cnt0 = contours[0]
+            int_area += cv.contourArea(cnt)
+    else:
+        contours = None
     union = cv.bitwise_or(real_mask, predicted_mask, mask=full_mask)
     if DEBUG:
         pic1path = os.path.relpath(f"./tmp/int_{id}.jpg")
@@ -252,8 +266,21 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
     
     iou = s_int / s_uni if s_uni > 1e-3 else None 
     uncertainty = uncertain_area/seg_area if seg_area > 1e-3 else None
+    dice = 2.0 * int_area / (seg_area + gt_area) if int_area > 1e-3 else None
+    r_area = seg_area/gt_area if gt_area > 1e-3 else None
+
+    predicted_bb = cv.cvtColor(predicted_bb, cv.COLOR_RGB2GRAY)
+    ret, predicted_bb = cv.threshold(predicted_bb, 5, 255, cv.THRESH_BINARY)
+    real_bb = cv.cvtColor(real_bb, cv.COLOR_RGB2GRAY)
+    ret, real_bb = cv.threshold(real_bb, 5, 255, cv.THRESH_BINARY)
+    full_mask = np.ones(real_bb.shape,dtype=np.uint8)
+    intersection = cv.bitwise_and(real_bb, predicted_bb, mask=full_mask)
+    union = cv.bitwise_or(real_bb, predicted_bb, mask=full_mask)
+    s_int = np.sum(intersection)
+    s_uni = np.sum(union)
+    iou_bb = s_int / s_uni if s_uni > 1e-3 else None 
     #
-    return iou, uncertainty, seg_area, gt_area
+    return iou, iou_bb, dice, uncertainty, r_area
     
 def update_segmentation(im_seg):
     # critic=[]
@@ -307,8 +334,8 @@ def main():
         # jsonpath = os.path.relpath(base+"_{}.json".format(i))
         # picpath = os.path.relpath(base+"_{}.jpg".format(i))
         for id in range(no_class):
-            iou, uncertainty, seg_area, gt_area = critic_segmentation_by_class(id, im_seg, im_gt, args)
-            print(f"class {id}:, iou {iou}, uncertainty {uncertainty}, area ratio {seg_area/gt_area if gt_area > 1e-3 else None}")
+            iou, iou_bb, dice, uncertainty, r_area = critic_segmentation_by_class(id, im_seg, im_gt, args)
+            print(f"class {id}:, iou {iou}, bb iou {iou_bb}, dice {dice}, uncertainty {uncertainty}, area ratio {r_area}")
         # if full_area > 1e-3:
         #     #uncertainty = uncertain_area/full_area
         #     polygon = save_contour(full_cnt,uncertainty,max_index,jsonpath,args)
