@@ -276,13 +276,13 @@ class ResNetUNet(nn.Module):
         self.img_width = args.img_width
         #self.pooled = args.pooled
         self.descending = args.descending
-        self.enc_p = 5#args.enc_port
+        # self.enc_p = args.enc_port
         #dropout = args.dropout
         relu_act = False#args.relu_act
-        self.resnet50 = False#args.resnet50
+        #self.resnet50 = args.resnet50
         self.batch_size = args.batch_size
         #self.img_add = args.img_add
-        self.single8 = False#args.single8
+        #self.single8 = args.single8
         normalize = False#args.normalize
         bn = True#args.res_bn
         up_relu = True#args.relu_act
@@ -294,10 +294,11 @@ class ResNetUNet(nn.Module):
         self.nested = args.nested
         self.lateral = args.lateral
 
-        if self.resnet50:
-            self.base_model = resnet50(pretrained=False)
-        else:
-            self.base_model = resnet18(pretrained=False)
+        # if self.resnet50:
+        #     self.base_model = resnet50(pretrained=False)
+        # else:
+        
+        self.base_model = resnet18(pretrained=False)
         self.base_layers = list(self.base_model.children())  
 
         #latent_dim = self.n_z
@@ -317,12 +318,12 @@ class ResNetUNet(nn.Module):
         self.down3 = UNetDown(128 + 64, 256)
         self.down4 = UNetDown(256 + 128, 512)
         self.down5 = UNetDown(512 + 256, 512)
-        if self.resnet50:
-            self.down6 = UNetDown(2048, 1024)
-            self.down7 = UNetDown(1024, 1024)
-        else:
-            self.down6 = UNetDown(512 + 512, 512)
-            self.down7 = UNetDown(512, 512)
+        # if self.resnet50:
+        #     self.down6 = UNetDown(2048, 1024)
+        #     self.down7 = UNetDown(1024, 1024)
+        # else:
+        self.down6 = UNetDown(512 + 512, 512)
+        self.down7 = UNetDown(512, 512)
 
         if self.descending:
             self.up1 = UNetUp(512, 512)
@@ -337,19 +338,19 @@ class ResNetUNet(nn.Module):
             self.res5 = nResNet(no_resblk * 4, 128) 
             self.up6 = UNetUp(128 + 64, 64)
             self.res6 = nResNet(no_resblk * 4, 64) 
-        elif self.resnet50:
-            self.up1 = UNetUp(1024, 1024)
-            self.res1 = nResNet(no_resblk * 8, 1024)
-            self.up2 = UNetUp(2048, 512)
-            self.res2 = nResNet(no_resblk * 8, 2048)
-            self.up3 = UNetUp(2560, 256)
-            self.res3 = nResNet(no_resblk * 8, 1024)
-            self.up4 = UNetUp(1280, 128)
-            self.res4 = nResNet(no_resblk * 4, 512)
-            self.up5 = UNetUp(640, 64)
-            self.res5 = nResNet(no_resblk * 2, 256) 
-            self.up6 = UNetUp(320, 64)
-            self.res6 = nResNet(no_resblk * 1, 64)
+        # elif self.resnet50:
+        #     self.up1 = UNetUp(1024, 1024)
+        #     self.res1 = nResNet(no_resblk * 8, 1024)
+        #     self.up2 = UNetUp(2048, 512)
+        #     self.res2 = nResNet(no_resblk * 8, 2048)
+        #     self.up3 = UNetUp(2560, 256)
+        #     self.res3 = nResNet(no_resblk * 8, 1024)
+        #     self.up4 = UNetUp(1280, 128)
+        #     self.res4 = nResNet(no_resblk * 4, 512)
+        #     self.up5 = UNetUp(640, 64)
+        #     self.res5 = nResNet(no_resblk * 2, 256) 
+        #     self.up6 = UNetUp(320, 64)
+        #     self.res6 = nResNet(no_resblk * 1, 64)
         elif self.nested: 
             self.up1 = UNetUp(512, 512)
             self.res1 = nResNet(no_resblk, 512)
@@ -392,19 +393,19 @@ class ResNetUNet(nn.Module):
             self.res6_3 = nResNet(no_resblk, 64+192) 
             self.res6_4 = nResNet(no_resblk, 64+256) 
             self.res6_5 = nResNet(no_resblk, 64+320) 
-        elif self.single8: 
-            self.up1 = UNetUp(512, 512)
-            self.res1 = nResNet(no_resblk * 8, 512)
-            self.up2 = UNetUp(1024, 512)
-            self.res2 = nResNet(no_resblk * 2, 512)
-            self.up3 = UNetUp(1024, 256)
-            self.res3 = nResNet(no_resblk * 2, 256)
-            self.up4 = UNetUp(512 + 256, 128)
-            self.res4 = nResNet(no_resblk * 2, 128)
-            self.up5 = UNetUp(256 + 128, 64)
-            self.res5 = nResNet(no_resblk * 2, 64) 
-            self.up6 = UNetUp(128 + 64, 64)
-            self.res6 = nResNet(no_resblk * 1, 64) 
+        # elif self.single8: 
+        #     self.up1 = UNetUp(512, 512)
+        #     self.res1 = nResNet(no_resblk * 8, 512)
+        #     self.up2 = UNetUp(1024, 512)
+        #     self.res2 = nResNet(no_resblk * 2, 512)
+        #     self.up3 = UNetUp(1024, 256)
+        #     self.res3 = nResNet(no_resblk * 2, 256)
+        #     self.up4 = UNetUp(512 + 256, 128)
+        #     self.res4 = nResNet(no_resblk * 2, 128)
+        #     self.up5 = UNetUp(256 + 128, 64)
+        #     self.res5 = nResNet(no_resblk * 2, 64) 
+        #     self.up6 = UNetUp(128 + 64, 64)
+        #     self.res6 = nResNet(no_resblk * 1, 64) 
         elif self.attention:
             if self.lateral:
                 self.up1 = UNetUp(512, 512)
@@ -463,35 +464,37 @@ class ResNetUNet(nn.Module):
             self.up6 = UNetUp(128 + 64, 64)
             self.res6 = nResNet(no_resblk * 1, 64) 
   
-        self.feature_extractor = nn.Sequential(*self.base_layers[:-3])
-        self.pooling = nn.AdaptiveAvgPool2d(1)
-        self.pooling1d = nn.AdaptiveAvgPool1d(self.n_z)
-        if self.resnet50:
-            self.fc = nn.Linear(1024, self.n_z) # resnet50: 1024
-            self.critic = nn.Linear(1024, 1)
-        else:
-            self.fc = nn.Linear(512, self.n_z) # resnet18: 256
-            self.critic = nn.Linear(self.n_z, 1) #critic
+        # self.feature_extractor = nn.Sequential(*self.base_layers[:-3])
+        # self.pooling = nn.AdaptiveAvgPool2d(1)
+        # self.pooling1d = nn.AdaptiveAvgPool1d(self.n_z)
+        # if self.resnet50:
+        #     self.fc = nn.Linear(1024, self.n_z) # resnet50: 1024
+        #     self.critic = nn.Linear(1024, 1)
+        # else:
+        # self.fc = nn.Linear(512, self.n_z) # resnet18: 256
+        # self.critic = nn.Linear(self.n_z, 1) #critic
             
-        self.fc0 = nn.Linear(self.n_z, self.img_width * self.img_height)
-        self.fc1 = nn.Linear(self.n_z, self.img_width * self.img_height // 4)
-        self.fc2 = nn.Linear(self.n_z, self.img_width * self.img_height // 16)
-        self.fc3 = nn.Linear(self.n_z, self.img_width * self.img_height // 64)
-        self.fc4 = nn.Linear(self.n_z, self.img_width * self.img_height // 256)
+        # self.fc0 = nn.Linear(self.n_z, self.img_width * self.img_height)
+        # self.fc1 = nn.Linear(self.n_z, self.img_width * self.img_height // 4)
+        # self.fc2 = nn.Linear(self.n_z, self.img_width * self.img_height // 16)
+        # self.fc3 = nn.Linear(self.n_z, self.img_width * self.img_height // 64)
+        # self.fc4 = nn.Linear(self.n_z, self.img_width * self.img_height // 256)
         
-        if self.nested:
-            self.final = nn.Sequential(
-                nn.Upsample(scale_factor=2), nn.Conv2d(448, channels, 3, stride=1, padding=1), nn.Tanh()
-            )
-        elif self.attention:
-            self.final = nn.Sequential(
+        # if self.nested:
+        #     self.final = nn.Sequential(
+        #         nn.Upsample(scale_factor=2), nn.Conv2d(448, channels, 3, stride=1, padding=1), nn.Tanh()
+        #     )
+        # elif self.attention:
+        #     self.final = nn.Sequential(
+        #         nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
+        #     )    
+        # else:
+        #     self.final = nn.Sequential(
+        #         nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
+        #     )
+        self.final = nn.Sequential(
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
-            )    
-        else:
-            self.final = nn.Sequential(
-                nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
-
     def forward(self, x):
         x = x
         h = self.img_height
@@ -583,42 +586,9 @@ class ResNetUNet(nn.Module):
             u3 = self.up3(u2, self.res3(d4))
             u4 = self.up4(u3, self.res4(d3))
             u5 = self.up5(u4, self.res5(d2))
-            u6 = self.up6(u5, self.res6(d1))
-            #u1 = self.up1(d7, (d6))
-            #u2 = self.up2(u1, (d5))
-            #u3 = self.up3(u2, (d4))
-            #u4 = self.up4(u3, (d3))
-            #u5 = self.up5(u4, (d2))
-            #u6 = self.up6(u5, (d1))    
+            u6 = self.up6(u5, self.res6(d1))  
 
-        #fout = self.feature_extractor(x)
-        #fout = self.pooling(fout)
-        # if self.enc_p == 5:
-        #    ep = d5
-        # elif self.enc_p == 6:
-        #    ep = d6
-        # else:
-        #    ep = d7
-        # dout = self.pooling(ep)
-        # out = torch.cat((dout,fout),1)
-        # out = dout.view(dout.size(0), -1)
-        # dout = gram_matrix(d6)
-        # v = torch.diagonal(dout, 0)
         
-        # eout = self.pooling1d(v)
-        # eout = v
-        # eout = self.pooling(d6)
-        # ( b, ch, hw) = eout.size()
-        # fout = torch.zeros_like(eout[:,0,:])
-        # for i in range(ch):
-        #    ieout = eout[:,i,:]
-        #    fout += ieout
-        #eout = fout/ch 
-        #eout = self.fc(out)
-        
-        #l6 = self.critic(eout)
-        #z0 = self.fc0(out).view(out.size(0), 1, h , w )
-        #z0 = gram_matrix(ep)
         z0 = gram_matrix(d7)
         z1 = gram_matrix(d6)
         z2 = gram_matrix(d5)
