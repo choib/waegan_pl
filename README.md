@@ -7,3 +7,4 @@ Python codes for WGAN based segmentation engine.
 python waegan_pl.py --dataset "laryngoscope" --date "0927simple" --no_noise --attention --n_resblk 4 --test_batch_size 8
 ```
 
+# waegan_pl
