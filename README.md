@@ -1,7 +1,7 @@
 ![Python 3.7](https://img.shields.io/badge/python-3.7-b0071e.svg?style=plastic)
 ![PyTorch 1.8](https://img.shields.io/badge/pytorch-1.8-%239e008e.svg?style=plastic)
 ![Pytorch-Lightning 1.5.1](https://img.shields.io/badge/pytorch_lightning-1.5.1-%239e008e.svg?style=plastic)
-![cuDNN 7.3.1](https://img.shields.io/badge/cuda-11.2-2545e6.svg?style=plastic)
+![cuDNN 7.3.1](https://img.shields.io/badge/cuda-11.1-2545e6.svg?style=plastic)
 ![License CC BY-NC](https://img.shields.io/badge/license-GPL_3.0_License-108a00.svg?style=plastic)
 
 # WGAN: Wasserstein GAN
@@ -24,8 +24,8 @@ The repository includes:
 * OS = Ubuntu 18.04
 
 # Testing Guidelines
-The docker image is present in the './assets/docker'. The required code, images and saved models are present in the './assets/code'.
-Inside code folder, the image data is preset inside the data folder. In order to test the trained model follow the following steps. 
+The docker file is present in the './assets/docker'.  
+You can set a Docker environment by following the steps below.
 
 * Step1: build docker image
 ```bash
