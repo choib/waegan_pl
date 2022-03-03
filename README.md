@@ -25,7 +25,7 @@ The repository includes:
 
 # Testing Guidelines
 The docker file is present in the './assets/docker'.  
-You can set a Docker environment by following the steps below.
+You can set a Docker environment and testing by following the steps below.
 
 * Step1: build docker image
 ```bash
