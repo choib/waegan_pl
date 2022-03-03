@@ -8,8 +8,7 @@
 Assuming that the loss function is a slowly changing value, it is a method to adjust the amount of updating the weight of the neural network using the clipping technique. It is a method in which gradient exploding and mode collapse, known as problems of vanilla GAN, occur less.
 
 
-<!-- ![22](https://user-images.githubusercontent.com/57978796/155951485-43db231f-dd3d-43ce-859e-6acb0237e069.png) -->
-
+<p align="center"><img src="assets/assets.png"></p>
 
 The repository includes:
 * Source code of WGAN built on ResNet.
@@ -55,7 +54,7 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 ```
 # Testing
 ```bash
-# epoch = [Learned weights to use]-1
+# epoch = [Trained weights to use]-1
 python waegan_pl.py --date ""  --dataset "cityscape_data" --validate   --DDP --epoch 499
 ```
 # Resutls
