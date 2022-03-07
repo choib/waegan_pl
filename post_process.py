@@ -11,12 +11,12 @@ from matplotlib import pyplot as plt
 #color_code=[(255,64,0),(64,0,255), (0,255,64)] # RGB
 # color_code=[(255,0,0),(0,0,255), (0,255,0)] # RGB
 # class_clr = ["#ff4000","#4000ff","#00ff40"]
-# color_code= [(0,255,255), (20,255,255), (40,255,255),
-#             (60,255,255), (80,255,255), (100,255,255),
-#             (120,255,255),(140,255,255), (160,255,255)] 
-color_code= [(52,255,255), (90,255,255), (105,255,255),
-             (127,255,255), (30,255,255), (0,255,255),
-             (150,255,255)] 
+color_code= [(0,255,255), (20,255,255), (40,255,255),
+            (60,255,255), (80,255,255), (100,255,255),
+            (120,255,255),(140,255,255), (160,255,255)] 
+# color_code= [(52,255,255), (90,255,255), (105,255,255),
+#              (127,255,255), (30,255,255), (0,255,255),
+#              (150,255,255)] 
 class_clr = ["#ff0000","#ffaa00","#aaff00",
             "#00ff00","#00ffaa","#00aaff",
             "#0000ff","#aa00ff","#ff00aa"]
@@ -30,51 +30,51 @@ class_clr = ["#ff0000","#ffaa00","#aaff00",
 #             "T_H":[(110, 255, 255),(150, 255, 255)],
 #             "full":[(180, 255, 255)],
 #             "uncertain":[(180, 225, 225)]}
-low_hsv =  [[(47, 100, 100)],
-    [(85, 100, 100)],
-    [(100, 100, 100)],
-    [(122, 100, 100)],
-    [(25, 100, 100)],
-    [(0, 100, 100),(175, 100, 100)],
-    [(145, 100, 100)],
-    [(0, 50, 50)],    
-    [(0, 50, 50)]]
-high_hsv = [[(57, 255, 255)],
-    [(95, 255, 255)],
-    [(110, 255, 255)],
-    [(132, 255, 255)],
-    [(35, 255, 255)],
-    [(5,255,255), (180, 255, 255)],
-    [(155, 255, 255)],
-    [(180, 255, 255)],
-    [(180, 225, 253)]]
-# low_hsv = [[(0, 100, 100),(175, 100, 100)], #_0
-#         [(15, 100, 100)], #_1
-#         [(35, 100, 100)], #_2
-#         [(55, 100, 100)], #_3
-#         [(70, 100, 100)], #_4
-#         [(90, 100, 100)], #_5
-#         [(115, 100, 100)], #_6
-#         [(130, 100, 100)], #_7
-#         [(25, 100, 100)], #_8
-#         [(0, 50, 50)], #_full
-#         [(0, 50, 50)]] #_uncertaim
-# high_hsv = [[(5,255,255), (180, 255, 255)], #_0
-#         [(25, 255, 255)], #_1
-#         [(45, 255, 255)], #_2 
-#         [(65, 255, 255)], #_3
-#         [(90, 255, 255)], #_4
-#         [(110, 255, 255)], #_5
-#         [(125, 255, 255)], #_6
-#         [(150, 255, 255)], #_7
-#         [(35, 255, 255)], #_8
-#         [(180, 255, 255)], #_full
-#         [(180, 253, 253)]] #_uncertain
+# low_hsv =  [[(47, 100, 100)],
+#     [(85, 100, 100)],
+#     [(100, 100, 100)],
+#     [(122, 100, 100)],
+#     [(25, 100, 100)],
+#     [(0, 100, 100),(175, 100, 100)],
+#     [(145, 100, 100)],
+#     [(0, 50, 50)],    
+#     [(0, 50, 50)]]
+# high_hsv = [[(57, 255, 255)],
+#     [(95, 255, 255)],
+#     [(110, 255, 255)],
+#     [(132, 255, 255)],
+#     [(35, 255, 255)],
+#     [(5,255,255), (180, 255, 255)],
+#     [(155, 255, 255)],
+#     [(180, 255, 255)],
+#     [(180, 225, 253)]]
+low_hsv = [[(0, 100, 100),(170, 100, 100)], #_0
+        [(10, 100, 100)], #_1
+        [(43, 100, 100)], #_2
+        [(47, 100, 100)], #_3
+        [(70, 100, 100)], #_4
+        [(90, 100, 100)], #_5
+        [(110, 100, 100)], #_6
+        [(130, 100, 100)], #_7
+        [(150, 100, 100)], #_8
+        [(0, 100, 100)], #_full
+        [(0, 100, 100)]] #_uncertaim
+high_hsv = [[(10,255,255), (180, 255, 255)], #_0
+        [(43, 255, 255)], #_1
+        [(47, 255, 255)], #_2 
+        [(70, 255, 255)], #_3
+        [(90, 255, 255)], #_4
+        [(110, 255, 255)], #_5
+        [(130, 255, 255)], #_6
+        [(150, 255, 255)], #_7
+        [(170, 255, 255)], #_8
+        [(180, 255, 255)], #_full
+        [(180, 254, 254)]] #_uncertain
 
 iter = 3
 detail = 0.002
-no_class = 7
-call_help = 7
+no_class = 9
+call_help = 10
 img_h, img_w, img_d = 256, 384, 3
 
 
@@ -143,45 +143,61 @@ def draw_pic(key,polygons,args):
         cv.fillPoly(src, [polygon], color, cv.LINE_AA)
     return src
 
-def save_pic(src,picpath,args):
-    bgrimg = cv.cvtColor(src, cv.COLOR_HSV2BGR)
+def save_pic(src,picpath,args=1):
+    if args  == 1:
+        bgrimg = cv.cvtColor(src, cv.COLOR_HSV2BGR)
     #src = cv.cvtColor(bgrimg, cv.COLOR_BGRA2RGBA)
-    cv.imwrite(picpath, bgrimg)#cv.cvtColor(bgrimg, cv.COLOR_BGR2RGB))
+    else: #if args == 0:
+        bgrimg = src
+    rgbimg = cv.cvtColor(bgrimg, cv.COLOR_BGRA2RGBA)
+    cv.imwrite(picpath, rgbimg)#cv.cvtColor(bgrimg, cv.COLOR_BGR2RGB))
 
 def critic_segmentation(im_seg):
     critic=[]
+    clist = set()
     im_seg = cv.cvtColor(im_seg, cv.COLOR_RGB2BGR)
     im_HSV = cv.cvtColor(im_seg, cv.COLOR_BGR2HSV)
     full_cnt, full_area = cnts_extract(im_HSV, low_hsv[-2][0], high_hsv[-2][0])
-    _, uncertain_area = cnts_extract(im_HSV, low_hsv[-1][0], high_hsv[-1][0], dilate=True, erode=True)
-    full_area = 1e-3 if full_area < 1e-3 else full_area
-    uncertainty = uncertain_area/full_area
+    #_, uncertain_area = cnts_extract(im_HSV, low_hsv[-1][0], high_hsv[-1][0], dilate=False, erode=False)
+    full_area = 1 if full_area < 1 else full_area
+    #uncertainty = uncertain_area/full_area
     
     for id in range(no_class):
         cl_area = 0.0
         for j in range(len(low_hsv[id])):
             _, c_area = cnts_extract(im_HSV, low_hsv[id][j], high_hsv[id][j], dilate=True, erode=True)
             cl_area += c_area
-        critic.append(cl_area/full_area)
+        ratio = cl_area/full_area
+        if cl_area > 1.0:
+            critic.append(ratio)
+            clist.add(id)
+        else:
+            critic.append(0)
     
-    max_value = max(critic)
-    max_index = critic.index(max_value)
-
-    return max_index, uncertainty, max_value, full_cnt
+    max_value = max(critic) if full_area > 1 else 0
+    max_index = critic.index(max_value) if max_value > 0 else 0
+    clist = list(clist)
+    return max_index, full_area, max_value, full_cnt, len(clist)
 
 def critic_segmentation_by_class(id, im_seg, im_gt, args):
     DEBUG = False
     critic=[]
     im_seg = cv.cvtColor(im_seg, cv.COLOR_RGB2BGR)
     im_gt = cv.cvtColor(im_gt, cv.COLOR_RGB2BGR)
+    if DEBUG:
+        pic1path = os.path.relpath(f"./tmp/seg_{id}_bgr.jpg")
+        pic2path = os.path.relpath(f"./tmp/gt_{id}_bgr.jpg")
+        save_pic(im_seg,pic1path,0)
+        save_pic(im_gt,pic2path,0)
+
     seg_HSV = cv.cvtColor(im_seg, cv.COLOR_BGR2HSV)
     gt_HSV = cv.cvtColor(im_gt, cv.COLOR_BGR2HSV)
     
     if DEBUG:
-        pic1path = os.path.relpath(f"./tmp/seg_{id}.jpg")
-        pic2path = os.path.relpath(f"./tmp/gt_{id}.jpg")
-        save_pic(seg_HSV,pic1path,args)
-        save_pic(gt_HSV,pic2path,args)
+        pic1path = os.path.relpath(f"./tmp/seg_{id}_hsv.jpg")
+        pic2path = os.path.relpath(f"./tmp/gt_{id}_hsv.jpg")
+        save_pic(seg_HSV,pic1path,1)
+        save_pic(gt_HSV,pic2path,1)
 
     seg_area = 0.0
     uncertain_area = 0.0
@@ -213,7 +229,7 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
         uncertain_area += u_seg_area
         if DEBUG:
             pic1path = os.path.relpath(f"./tmp/seg_{id}_{j}.jpg")
-            save_pic(predicted_mask,pic1path,args)
+            save_pic(predicted_mask,pic1path,1)
             
     gt_area = 0.0
     for j in range(len(low_hsv[id])):
@@ -232,13 +248,13 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
            #real_mask = cv.add(real_mask, draw_pic(id, approx_poly, args))
         if DEBUG:
             pic2path = os.path.relpath(f"./tmp/gt_{id}_{j}.jpg")
-            save_pic(real_mask,pic2path,args)    
+            save_pic(real_mask,pic2path,1)    
     # critic.append(cl_area/full_area)
     if DEBUG:
         pic1path = os.path.relpath(f"./tmp/predict_{id}.jpg")
         pic2path = os.path.relpath(f"./tmp/real_{id}.jpg")
-        save_pic(predicted_mask,pic1path,args)
-        save_pic(real_mask,pic2path,args)
+        save_pic(predicted_mask,pic1path,1)
+        save_pic(real_mask,pic2path,1)
 
     predicted_mask = cv.cvtColor(predicted_mask, cv.COLOR_RGB2GRAY)
     ret, predicted_mask = cv.threshold(predicted_mask, 5, 255, cv.THRESH_BINARY)
@@ -258,8 +274,8 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
     if DEBUG:
         pic1path = os.path.relpath(f"./tmp/int_{id}.jpg")
         pic2path = os.path.relpath(f"./tmp/uni_{id}.jpg")
-        save_pic(cv.cvtColor(intersection,cv.COLOR_GRAY2RGB),pic1path,args)
-        save_pic(cv.cvtColor(union,cv.COLOR_GRAY2RGB),pic2path,args)
+        save_pic(cv.cvtColor(intersection,cv.COLOR_GRAY2RGB),pic1path,0)
+        save_pic(cv.cvtColor(union,cv.COLOR_GRAY2RGB),pic2path,0)
     
     s_int = np.sum(intersection)
     s_uni = np.sum(union)
@@ -280,7 +296,7 @@ def critic_segmentation_by_class(id, im_seg, im_gt, args):
     s_uni = np.sum(union)
     iou_bb = s_int / s_uni if s_uni > 1e-3 else None 
     #
-    return iou, iou_bb, dice, uncertainty, r_area
+    return iou, iou_bb, dice, uncertainty, int_area, seg_area, gt_area, seg_cnts
     
 def update_segmentation(im_seg):
     # critic=[]
@@ -306,8 +322,8 @@ def update_segmentation(im_seg):
 
 def main():
     parser = argparse.ArgumentParser(description='Code for autolabeling of 7 classes')
-    parser.add_argument('--seg', help='Input file path', default="./images/1009_seg_laryngoscope/1031_8.png", type=str)
-    parser.add_argument('--gt', help='Input file path', default="./images/1009_gt_laryngoscope/1031_8.png", type=str)
+    parser.add_argument('--seg', help='Input file path', default="./images/1011ict2_seg_SNUH_ICT2/472_8.png", type=str)
+    parser.add_argument('--gt', help='Input file path', default="./images/1011ict2_gt_SNUH_ICT2/472_8.png", type=str)
     parser.add_argument('--split', help='number of image stack', default=8, type=int)
     parser.add_argument("--img_width", dest="img_width", default=384, type=int, help="width of image in pixels")
     parser.add_argument("--img_height", dest="img_height", default=256, type=int, help="height of image in pixels")
@@ -334,8 +350,9 @@ def main():
         # jsonpath = os.path.relpath(base+"_{}.json".format(i))
         # picpath = os.path.relpath(base+"_{}.jpg".format(i))
         for id in range(no_class):
-            iou, iou_bb, dice, uncertainty, r_area = critic_segmentation_by_class(id, im_seg, im_gt, args)
-            print(f"class {id}:, iou {iou}, bb iou {iou_bb}, dice {dice}, uncertainty {uncertainty}, area ratio {r_area}")
+            iou, iou_bb, dice, uncertainty, int_area, seg_area, gt_area, _ = critic_segmentation_by_class(id, im_seg, im_gt, args)
+            #iou, iou_bb, dice, unc, area_int, area_p, area_gt, cnts
+            print(f"class {id}:, iou {iou}, bb iou {iou_bb}, dice {dice}, uncertainty {uncertainty}, area ratio {seg_area/gt_area if gt_area > 1e-3 else None}")
         # if full_area > 1e-3:
         #     #uncertainty = uncertain_area/full_area
         #     polygon = save_contour(full_cnt,uncertainty,max_index,jsonpath,args)

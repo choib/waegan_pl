@@ -1,7 +1,6 @@
 import post_process as pp
 import pandas as pd
 import csv
-from sklearn.metrics import multilabel_confusion_matrix, confusion_matrix
 from pathlib import Path
 import torch
 import logging
@@ -27,12 +26,14 @@ def clean_dir(folder):
 def eval_data(args, generator_unet, data_loader, Tensor):
 
     generator_unet.eval()
+    mse_loss = torch.nn.MSELoss()
     input_shape = (args.n_channel, args.img_height, args.img_width)
     sum_test = 0
     tmp_path = "./tmp/user_cv.jpg"
     tmp_csv = "./tmp/user_result.csv"
     json_dir = "./tmp/user_json"
     jpg_dir = "./tmp/user_jpg"
+    png_dir = "./tmp/user_png"
     os.makedirs(json_dir, exist_ok=True)
     os.makedirs(jpg_dir, exist_ok=True)
     clean_dir(json_dir)
@@ -50,8 +51,11 @@ def eval_data(args, generator_unet, data_loader, Tensor):
     for i, batch in enumerate(data_loader):
         
         real_A = Variable(batch["A"].type(Tensor))
-        generated, _, encoded, _ = generator_unet(real_A)
-        save_image(generated.detach().cpu()[0],tmp_path)
+        noisy = Variable(batch["aug_A"].type(Tensor))
+        generated, e, e1, e2 = generator_unet(real_A)
+        _, z, z1, z2 = generator_unet(noisy)
+        error = mse_loss(e,z) + mse_loss(e1,z1) + mse_loss(e2,z2)
+        save_image(generated.detach().cpu()[0],tmp_path,normalize=True)
         img_cv = Image.open(tmp_path)
         img_cv.load()
         img_cv = img_cat = np.asarray(img_cv, dtype='uint8')
@@ -70,14 +74,16 @@ def eval_data(args, generator_unet, data_loader, Tensor):
         _, basename = os.path.split(base)
         jsonpath = os.path.relpath(json_dir+"/"+basename+".json")
         picpath = os.path.relpath(jpg_dir+"/"+basename+".jpg")
+        pngpath = os.path.relpath(png_dir+"/"+basename+".png")
+        save_image(generated.detach().cpu()[0],png_path,normalize=True)
         if cnts is not None: #len(cnts) > 0:
             polygon = pp.save_contour(cnts,unc,tp,jsonpath,args)
             img_cv = pp.draw_pic(tp,polygon,args)
             img_cat = cv.vconcat([img_cat, img_cv])
             pp.save_pic(img_cat,picpath,args)
 
-        result.append([pathA, unc, tp])
-        del real_A, encoded, generated, pathA
+        result.append([pathA, unc, tp, error.item()])
+        del real_A, encoded, generated, pathA, error
         torch.cuda.empty_cache()
     
    

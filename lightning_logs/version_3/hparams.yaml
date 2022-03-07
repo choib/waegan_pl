@@ -2,46 +2,38 @@ args: !!python/object:argparse.Namespace
   DDP: true
   add_graph: false
   attention: true
-  batch_size: 3
+  batch_size: 32
   clip_value: 0.01
   clip_weight: true
-  cpt_interval: 10
-  dataset: ICT_21_09_30_v2
-  date: 1005snu
+  dataset: SNUH-CNDL-UCUK
+  date: '102921'
   descending: false
   disc_channel: 1
   disc_kernel: 3
-  disc_retrain: false
   dropout: 0.0
-  enc_port: 6
   epoch: 0
   epochs: 501
-  ex_critic: true
-  gan: true
-  gp_lambda: 10
+  gp_lambda: 100.0
+  gpu: 8
   gram: true
   img_height: 256
   img_width: 384
   k_wass: 0.1
   lateral: false
   lr: 0.0002
-  mse: false
   multi_critic: true
   n_channel: 3
+  n_class: 0
   n_critic: 3
-  n_resblk: 4
+  n_resblk: 1
   n_z: 32
   nested: false
   noise_in: false
-  precision: 32
-  resnet50: false
-  save: true
+  precision: 16
   sigma: 0.1
-  single8: false
-  style_ratio: 0.05
+  style_ratio: 0.5
   test_batch_size: 8
   train: true
   train_max: 500
   uncertainty: 0.05
   val_target: test
-  wass_metric: true

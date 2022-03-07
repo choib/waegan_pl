@@ -1,9 +1,15 @@
 *.log
+temporary/
 tmp/
 save/
 logparse/
 data_prep/
 images/
 lightning_logs/
+lightning_logs_bak/
 callback_pl.py
 __pycache__/
+*.csv 
+*old.py
+*.py[cod]
+hparams.yaml
