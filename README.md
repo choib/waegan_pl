@@ -52,10 +52,14 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 ```bash
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 16
 ```
+```bash
+# when you training pretrained weight
+python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 16 --epoch [trained epoch -1]
+```
 # Testing
 ```bash
 # epoch = [Trained weights to use]-1
-python waegan_pl.py --date ""  --dataset "cityscape_data" --validate   --DDP --epoch 499
+python waegan_pl.py --date ""  --dataset "cityscape_data" --validate   --DDP --epoch [trained epoch -1]
 ```
 # Resutls
 * you can find weight file in './save/[dataset name]_'
