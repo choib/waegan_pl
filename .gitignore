@@ -9,6 +9,9 @@ lightning_logs/
 lightning_logs_bak/
 callback_pl.py
 __pycache__/
+pytorch_ssim/__pycache__/
+pytorch_msssim/__pycache__/
+.idea
 *.csv 
 *old.py
 *.py[cod]
