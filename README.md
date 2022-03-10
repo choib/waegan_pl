@@ -26,7 +26,7 @@ The repository includes:
 # Get Test Data
 1. register at [www.cityscapes-dataset,com](www.cityscapes-dataset,com)
 2. download gtFine_trainvaltest.zip (241MB) and leftImg8bit_trainvaltest.zip (11GB) 
-3. execute prepare_mteg_dataset.py with options.(convert data for)
+3. execute './assets/prepare_mteg_dataset.py' with options.(convert data for)
 
 # Testing Guidelines
 The docker file is present in the './assets/docker'.  
