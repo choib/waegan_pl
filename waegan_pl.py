@@ -34,10 +34,10 @@ from apex import *
 import pytorch_ssim
 import options
 import save_im as sv
-import print_sysout as ps
-import eval_data_gt as edg
-import eval_data as ed
-import update_data as ud
+# import print_sysout as ps
+# import eval_data_gt as edg
+# import eval_data as ed
+# import update_data as ud
 import post_process as pp
 import pandas as pd
 import csv
