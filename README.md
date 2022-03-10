@@ -57,7 +57,7 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32
 ```
 ```bash
-# when you training pretrained weight
+# when you training with pretrained weight
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --epoch [trained epoch -1]
 ```
 # Testing
