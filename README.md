@@ -28,7 +28,7 @@ The repository includes:
 3. execute './assets/prepare_mteg_dataset.py' with options.(convert data for)
 
 # Testing Guidelines
-The docker file is present in the './assets/docker'.  
+The docker file is present in the './assets/docker/'.  
 You can set a Docker environment and testing by following the steps below.
 
 * Step1: build docker image
