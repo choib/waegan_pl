@@ -12,9 +12,8 @@ Assuming that the loss function is a slowly changing value, it is a method to ad
 
 The repository includes:
 * Source code of WGAN built on ResNet.
-* Training code for stylegan dataset
-* Pre-trained weights for stylegan dataset
-* Example of training on stylegan dataset(cityscape)
+* Training and test code for stylegan dataset
+* Code for convert to stylegan dataset(cityscape)
 
 # Testing Environment
 * CPU = AMD® Ryzen threadripper 3960x 24-core processor × 48
