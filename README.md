@@ -62,9 +62,9 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 python waegan_pl.py --date ""  --dataset "cityscape_data" --validate   --DDP --epoch [trained epoch -1]
 ```
 # Resutls
-* you can find weight file in './save/[dataset name]_'
-* you can find pred image file in './images/_seg_[dataset name]'
-* you can find pred image file that overlap the original image in './images/_overlap_[dataset_name]'
+* you can find weight file in './waegan_pl/save/[dataset name]_'
+* you can find pred image file in './waegan_pl/images/_seg_[dataset name]'
+* you can find pred image file that overlap the original image in './waegan_pl/images/_overlap_[dataset_name]'
 
 # License
 GPL-3.0 License
