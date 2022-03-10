@@ -49,7 +49,7 @@ class Options():
         parser.add_argument("--n_class", dest="n_class", default=2, type=int, help="class id for validation")
         parser.add_argument("--n_classes", dest="n_classes", default=32, type=int, help="class id for validation")
         parser.add_argument("--last", dest="last", action='store_true', help="flag to use last checkpoint file")
-        parser.add_argument("--dataroot", dest="dataroot", default='../data', type=str, help="root directory of data files")
+        parser.add_argument("--dataroot", dest="dataroot", default='../../data', type=str, help="root directory of data files")
        #parser.add_argument("--smoothing", dest="smth", default=0.45, type=float, help="label smoothing")
      
         return parser
