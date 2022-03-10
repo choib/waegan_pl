@@ -23,6 +23,11 @@ The repository includes:
 * SSD = 512GB
 * OS = Ubuntu 18.04
 
+# Get Testing Data
+1. register at [www.cityscapes-dataset,com](www.cityscapes-dataset,com)
+2. download gtFine_trainvaltest.zip (241MB) and leftImg8bit_trainvaltest.zip (11GB) 
+3. execute prepare_mteg_dataset.py with options.(convert data for)
+
 # Testing Guidelines
 The docker file is present in the './assets/docker'.  
 You can set a Docker environment and testing by following the steps below.
