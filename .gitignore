@@ -11,7 +11,7 @@ callback_pl.py
 __pycache__/
 pytorch_ssim/__pycache__/
 pytorch_msssim/__pycache__/
-.idea
+.idea/
 *.csv 
 *old.py
 *.py[cod]
