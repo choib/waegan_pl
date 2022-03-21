@@ -186,7 +186,7 @@ class WaeGAN(LightningModule):
             frozen_params(self.discriminator_unet)
             free_params(self.generator_unet)
 
-            generated, encoded_, e1_, _ = self(real_A)
+            generated, encoded_, e1_, _ = self.generator_unet(real_A)
             _, z_, z1_, _ = self(noisy)
             
             self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
@@ -235,7 +235,7 @@ class WaeGAN(LightningModule):
 
             noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)
             generated, encoded_, e1_, e2_ = self(real_A.detach())
-            _, z_, z1_, z2_ = self(noisy)
+            _, z_, z1_, z2_ = self.generator_unet(noisy)
 
             real_aux, real_adv = e1_, e2_
             labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.args.n_classes)
@@ -553,9 +553,10 @@ def main(args: Namespace) -> None:
     input_shape = (args.n_channel, args.img_height, args.img_width)
     if args.precision == 16:
         Tensor = torch.cuda.HalfTensor if cuda else torch.FloatTensor
+        o_level = 'O0'
     else:
         Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-    o_level = 'O1'
+        o_level = 'O1'
     amp_back = 'apex'
     # ------------------------
     # 1 INIT LIGHTNING MODEL
