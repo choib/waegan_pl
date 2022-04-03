@@ -23,7 +23,7 @@ def gaussian(ins, mean, stddev):
     noise = Variable(ins.data.new(ins.size()).normal_(mean, stddev))
     return ins + noise
   
-def sample_images(batches_done, data_loader, args, generator, criterion, Tensor):
+def sample_images(batches_done, data_loader, args, generator_enc, generator_dec, criterion, Tensor):
     """Saves a generated sample from the test set"""
     imgs = next(iter(data_loader))
     
@@ -44,8 +44,8 @@ def sample_images(batches_done, data_loader, args, generator, criterion, Tensor)
             aug_A = aug_A.view(1, *aug_A.shape)
             aug_A = Variable(aug_A.type(Tensor))
             noisy = aug_A
-             
-        fake_B, latent_img, _, validity   = generator(real_A)
+        #z = Variable(Tensor(np.random.normal(0, 1, (real_A.shape[0],args.n_z))))     
+        fake_B, latent_img, _, validity   = generator_dec(generator_enc(real_A))
         validity = validity.mean().item()
         real_B = img_B.view(1, *img_B.shape)
         real_B = Variable(real_B.type(Tensor))

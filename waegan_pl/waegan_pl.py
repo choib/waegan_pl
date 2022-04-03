@@ -24,7 +24,8 @@ import torchvision.transforms as transforms
 from argparse import ArgumentParser, Namespace
 
 #from models_resnet_pl import *
-from models_pl import *
+#from models_pl import *
+from models_sp import *
 from datasets_resnet import *
 
 import torch.distributed as dist
@@ -101,19 +102,23 @@ class WaeGAN(LightningModule):
         #     pass
         # self.mone = -1*self.one
         
-        
+        self.n_classes = args.n_classes
         self.df_csv = f"./csv/{args.date}_{args.dataset}.csv"
         self.tmp_csv = f"./tmp/{args.date}_{args.dataset}_result.csv"
         self.tmp_pred = f"./tmp/{args.date}_{args.dataset}_predict.csv"
         # networks
-        self.generator_unet = ResNetUNet(args)#.to(self.device)
+        #self.generator_unet = ResNetUNet(args)#.to(self.device)
+        self.generator_enc = ResNetUNetEncoder(args)
+        self.generator_dec = ResNetUNetDecoder(args)
         self.discriminator_unet = MultiDiscriminator(args)#.to(self.device)
         self.mse_loss = nn.MSELoss()#.to(self.device)
         self.adv_loss = torch.nn.BCEWithLogitsLoss()#.to(self.device)
         self.aux_loss = LabelSmoothingCrossEntropy(0.1)#LabelSmoothing(self.smth)#torch.nn.CrossEntropyLoss(label_smoothing=self.smth)# 
         self.criterion = pytorch_ssim.SSIM()#.to(self.device)
 
-        self.generator_unet.apply(weights_init_normal)
+        #self.generator_unet.apply(weights_init_normal)
+        self.generator_enc.apply(weights_init_normal)
+        self.generator_dec.apply(weights_init_normal)
         self.discriminator_unet.apply(weights_init_normal)
 
         self.k_enc = args.gp_lambda*args.k_wass
@@ -141,8 +146,8 @@ class WaeGAN(LightningModule):
             ]
         )
 
-    def forward(self, z):
-        return self.generator_unet(z)
+    def forward(self, x, noise, label):
+        return self.generator_dec(self.generator_enc(x), noise, label)
 
     def compute_gradient_penalty(self, real_samples, fake_samples):
         """Calculates the gradient penalty loss for WGAN GP"""
@@ -168,32 +173,42 @@ class WaeGAN(LightningModule):
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         
-        lambda_gp = self.args.gp_lambda
+        #lambda_gp = self.args.gp_lambda
         real_A = Variable(batch["A"],requires_grad=True)#.to(self.device)
         real_B = Variable(batch["B"],requires_grad=True)#.to(self.device)
         aug_A = Variable(batch["aug_A"],requires_grad=True)#.to(self.device)
         labels = Variable(LongTensor(batch["label"]), requires_grad=False)
             
-        gen_labels = Variable(LongTensor(np.random.randint(0, self.args.n_classes,real_A.shape[0])),requires_grad=False)
-
+        gen_labels = Variable(LongTensor(np.random.randint(0, self.n_classes,real_A.shape[0])),requires_grad=False)
+        z = Variable(FloatTensor(np.random.normal(0, 1, (labels.shape[0],self.args.n_z))))
 
         if self.args.noise_in:
             noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)#.to(self.device)
         else:
             noisy = aug_A
       
-        if optimizer_idx == 0:
+        if optimizer_idx == 0 :
             frozen_params(self.discriminator_unet)
-            free_params(self.generator_unet)
+            frozen_params(self.generator_enc)
+            free_params(self.generator_dec)
 
-            generated, encoded_, e1_, _ = self.generator_unet(real_A)
-            _, z_, z1_, _ = self(noisy)
-            
-            self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
-            match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
-            label_loss = self.aux_loss(z1_,e1_)
-            self.log("matching",match.mean().item())
-            self.log("label loss",label_loss)
+            #generated, encoded_, e1_, _ = self.generator_unet(real_A)
+            #_, z_, z1_, _ = self(noisy)
+
+            downstream = self.generator_enc(real_A)
+            e1_ = downstream[-2]
+            e2_ = downstream[-1]
+            generated, _, _, _ = self.generator_dec(downstream)#,z,torch.argmax(e1_, dim=1))
+            #downstream = self.generator_enc(noisy)
+            #z1_ = downstream[-2]
+            #z2_ = downstream[-1]
+            #_, _, _, _ = self.generator_dec(downstream,z, gen_labels)
+           
+            # self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
+            # match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
+            # label_loss = self.aux_loss(z1_,e1_)
+            # self.log("matching",match.mean().item())
+            # self.log("label loss",label_loss)
             m_loss = self.mse_loss(real_B, generated)
             if self.args.descending:
                 s_r = (1-self.current_epoch/self.args.train_max)*self.args.style_ratio
@@ -203,23 +218,21 @@ class WaeGAN(LightningModule):
             style_loss = (s_r)*(1 - self.criterion(real_B, generated))\
                 + (1-s_r)* m_loss
             
-           
-            
-            enc_loss =(self.mse_loss(encoded_ , z_)) 
-            self.log("enc loss",enc_loss) 
-            enc_loss = self.args.k_wass*enc_loss       
+            # enc_loss =(self.mse_loss(encoded_ , z_)) 
+            # self.log("enc loss",enc_loss) 
+            # enc_loss = self.args.k_wass*enc_loss       
 
             h_loss = self.args.k_wass*self.discriminator_unet(generated)
             wass_loss = -torch.mean(h_loss)
-            g_loss = (style_loss + wass_loss + enc_loss) 
+            g_loss = (style_loss + wass_loss)# + enc_loss) 
            
             self.log("style loss",style_loss)
             self.log("mse loss",m_loss)
             self.log("g_loss",g_loss, sync_dist=True)
             self.log("wass loss",wass_loss)
-            g_loss += self.args.k_wass*label_loss
+            #g_loss += self.args.k_wass*label_loss
             g_loss = g_loss.float()
-            tqdm_dict = {'g_loss': g_loss}
+            tqdm_dict = {'g_loss': g_loss.detach()}
             output = OrderedDict({
                 'loss': g_loss,
                 'progress_bar': tqdm_dict,
@@ -228,46 +241,103 @@ class WaeGAN(LightningModule):
             return output
 
         elif optimizer_idx == 1:
-            free_params(self.discriminator_unet)
-            free_params(self.generator_unet)
+            frozen_params(self.discriminator_unet)
+            free_params(self.generator_enc)
+            frozen_params(self.generator_dec)
+
             valid = Variable(Tensor(real_A.shape[0], 1).fill_(1.0), requires_grad=False)
             fake = Variable(Tensor(real_A.shape[0], 1).fill_(0.0), requires_grad=False)
 
-            noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)
-            generated, encoded_, e1_, e2_ = self(real_A.detach())
-            _, z_, z1_, z2_ = self.generator_unet(noisy)
-
+            noisy = sv.gaussian(aug_A,mean=0,stddev=self.args.sigma)
+            #generated, encoded_, e1_, e2_ = self(real_A.detach())
+            #_, z_, z1_, z2_ = self.generator_unet(noisy)
+            downstream = self.generator_enc(real_A)
+            e1_ = downstream[-2]
+            e2_ = downstream[-1]
+            #generated, encoded_, _, _ = self.generator_dec(downstream,z,labels)
+            downstream = self.generator_enc(noisy)
+            z1_ = downstream[-2]
+            z2_ = downstream[-1]
+            #_, z_, _, _ = self.generator_dec(downstream,z, gen_labels)
+           
             real_aux, real_adv = e1_, e2_
-            labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.args.n_classes)
+            labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes)
             real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, labels_onehot)
            
             fake_aux, fake_adv = z1_, z2_
-            gen_labels_onehot= torch.nn.functional.one_hot(gen_labels, num_classes=self.args.n_classes)
+            gen_labels_onehot= torch.nn.functional.one_hot(gen_labels, num_classes=self.n_classes)
             fake_loss = self.adv_loss(fake_adv,fake) + self.aux_loss(fake_aux, gen_labels_onehot)
             
-          
-            enc_loss =(self.mse_loss(encoded_ , z_))
-            self.log("enc loss",enc_loss) # just monitor
-            gen_loss = self.args.k_wass*(real_loss + fake_loss)/4.0
-            self.log("genenc loss",gen_loss) 
-            f_loss = self.args.k_wass*self.discriminator_unet(real_B)
-            h_loss = self.args.k_wass*self.discriminator_unet(generated)
+            self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
+            match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
+            label_loss = self.aux_loss(z1_,e1_)
+            self.log("matching",match.mean().item())
+            self.log("label loss",label_loss)    
+
+            enc_loss =(self.mse_loss(e1_ , z1_)) 
+            self.log("enc loss",enc_loss) 
+            enc_loss = self.args.k_wass*enc_loss   
+
+            genenc_loss = self.args.k_wass*((real_loss + fake_loss)/4.0 + label_loss + enc_loss)
+            self.log("genenc loss",genenc_loss) 
+
+            if self.args.clip_weight:
+                #enc_loss# if self.args.gram else 0
+                for p in self.generator_enc.parameters():
+                    p.data.clamp_(-self.args.clip_value, self.args.clip_value)
+            # else:
+            #     gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
+            #     #enc_loss# if self.args.gram else 0
+            #     d_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
+            
+            tqdm_dict = {'genenc_loss': genenc_loss.detach()}
+            
+            output = OrderedDict({
+                'loss': genenc_loss,
+                'progress_bar': tqdm_dict,
+                'log': tqdm_dict
+            })
+            return output
+
+        elif optimizer_idx == 2:
+            free_params(self.discriminator_unet)
+            frozen_params(self.generator_enc)
+            frozen_params(self.generator_dec)
+
+            #noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)
+            #generated, encoded_, e1_, e2_ = self(real_A.detach())
+            #_, z_, z1_, z2_ = self.generator_unet(noisy)
+            #noisy = aug_A
+            downstream = self.generator_enc(real_A.detach())
+            e1_ = downstream[-2]
+            e2_ = downstream[-1]
+            generated, _, _, _ = self.generator_dec(downstream,z,labels)
+            # downstream = self.generator_enc(noisy)
+            # z1_ = downstream[-2]
+            # z2_ = downstream[-1]
+            # _, z_, _, _ = self.generator_dec(downstream,z, gen_labels)
+           
+            # enc_loss =(self.mse_loss(encoded_ , z_))
+            # self.log("enc loss",enc_loss) # just monitor
+            
+            f_loss = self.args.k_wass*self.discriminator_unet(real_B.detach())
+            h_loss = self.args.k_wass*self.discriminator_unet(generated.detach())
             d_loss = (torch.mean(f_loss) - torch.mean(h_loss))#wasserstein loss
            
             if self.args.clip_weight:
-                d_loss -= gen_loss#enc_loss# if self.args.gram else 0
+                #enc_loss# if self.args.gram else 0
                 for p in self.discriminator_unet.parameters():
                     p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             else:
                 gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
-                d_loss -= gen_loss#enc_loss# if self.args.gram else 0
+                #enc_loss# if self.args.gram else 0
                 d_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
             
            
             d_loss = -d_loss.float()
             self.log("discriminator loss",d_loss, sync_dist=True)
             
-            tqdm_dict = {'d_loss': d_loss}
+            tqdm_dict = {'d_loss': d_loss.detach()}
             
             output = OrderedDict({
                 'loss': d_loss,
@@ -275,7 +345,6 @@ class WaeGAN(LightningModule):
                 'log': tqdm_dict
             })
             return output
-
     # def backward(self, loss, optimizer, optimizer_idx):
     #     # do a custom way of backward
     #     with autocast():
@@ -293,11 +362,13 @@ class WaeGAN(LightningModule):
         lr = self.lr
         #b1 = self.b1
         #b2 = self.b2
-        opt_g = torch.optim.Adam(self.generator_unet.parameters(), lr=lr)#, betas=(b1, b2))
+        opt_gd = torch.optim.Adam(self.generator_dec.parameters(), lr=lr)#, betas=(b1, b2))
+        opt_ge = torch.optim.Adam(self.generator_enc.parameters(), lr=lr)#, betas=(b1, b2))
         opt_d = torch.optim.Adam(self.discriminator_unet.parameters(), lr=lr)#, betas=(b1, b2))
         
         return (
-            {'optimizer': opt_g, 'frequency': 1},
+            {'optimizer': opt_gd, 'frequency': 1},
+            {'optimizer': opt_ge, 'frequency': self.n_critic},
             {'optimizer': opt_d, 'frequency': self.n_critic},
         )
 
@@ -335,8 +406,8 @@ class WaeGAN(LightningModule):
             real_B = real_B.unsqueeze(0)
             aug_A = Variable(aug_A).type(Tensor)#.cuda()
             aug_A = aug_A.unsqueeze(0)
-            fake_B, e, e1, e2 = self(real_A)
-            _, z, z1, z2 = self(aug_A)
+            fake_B, e, e1, e2 = self.generator_dec(self.generator_enc(real_A))
+            _, z, z1, z2 = self.generator_dec(self.generator_enc(aug_A))
             nz_f = self.mse_loss(e, z) #+ self.mse_loss(e1, z1) + self.mse_loss(e2, z2)
             nz_f = nz_f.item()
             val = e2.squeeze().item()
@@ -380,7 +451,7 @@ class WaeGAN(LightningModule):
         self.log("test loss",self.sum_test/self.no_sample, sync_dist=True)
             
 
-        tqdm_dict = {'test_loss': test_loss}
+        tqdm_dict = {'test_loss': test_loss.detach()}
         
         output = OrderedDict({
             'loss': test_loss,
@@ -396,8 +467,8 @@ class WaeGAN(LightningModule):
             real_A = real_A.unsqueeze(0)
             aug_A = Variable(aug_A).type(Tensor)#.cuda()
             aug_A = aug_A.unsqueeze(0)
-            fake_B, e, e1, e2 = self(real_A)
-            _, z, z1, z2 = self(aug_A)
+            fake_B, e, e1, e2 = self.generator_dec(self.generator_enc(real_A))
+            _, z, z1, z2 = self.generator_dec(self.generator_enc(aug_A))
             nz_f = self.mse_loss(e, z) #+ self.mse_loss(e1, z1) + self.mse_loss(e2, z2)
             nz_f = nz_f.item()
            
@@ -542,21 +613,23 @@ class SaveImage(Callback):
     #@rank_zero_only
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         batches_done = pl_module.current_epoch
-        pl_module.generator_unet.eval()
-        val_loss, validity = sv.sample_images(batches_done, self.test_loader, self.args, pl_module.generator_unet, pl_module.mse_loss, Tensor)
+        pl_module.generator_enc.eval()
+        pl_module.generator_dec.eval()
+        val_loss, validity = sv.sample_images(batches_done, self.test_loader, self.args, pl_module.generator_enc, pl_module.generator_dec, pl_module.mse_loss, Tensor)
         self.log("validation loss",val_loss)
         self.log("validity",validity)
-        pl_module.generator_unet.train()
+        pl_module.generator_enc.train()
+        pl_module.generator_dec.train()
 
 
 def main(args: Namespace) -> None:
     input_shape = (args.n_channel, args.img_height, args.img_width)
     if args.precision == 16:
         Tensor = torch.cuda.HalfTensor if cuda else torch.FloatTensor
-        o_level = 'O0'
+        o_level = 'O1'
     else:
         Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-        o_level = 'O1'
+        o_level = 'O0'
     amp_back = 'apex'
     # ------------------------
     # 1 INIT LIGHTNING MODEL

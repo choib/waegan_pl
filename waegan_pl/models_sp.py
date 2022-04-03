@@ -186,7 +186,7 @@ class nResNet(nn.Module):
 
 
 class UNetDown(nn.Module):
-    def __init__(self, in_size, out_size, normalize=True, dropout=0.0, swish_act=False, relu_act=True, style=True):
+    def __init__(self, in_size, out_size, normalize=True, dropout=0.0, swish_act=False, relu_act=True, style=False):
         super(UNetDown, self).__init__()
         layers = [nn.Conv2d(in_size, out_size, 3, stride=2, padding=1, bias=False)]
         if style:
@@ -198,7 +198,7 @@ class UNetDown(nn.Module):
                 if swish_act:
                     layers.append(Swish())
                 else:
-                    layers.append(nn.ReLU(inplace=True))
+                    layers.append(nn.LeakyReLU(0.2,inplace=True))
          
             layers.append(nn.Conv2d(out_size, out_size, 3, stride=1, padding=1))
             if normalize:
@@ -214,7 +214,7 @@ class UNetDown(nn.Module):
                 if swish_act:
                     layers.append(Swish())
                 else:
-                    layers.append(nn.ReLU(inplace=True))    
+                    layers.append(nn.LeakyReLU(0.2,inplace=True))    
         #else:
         #    
         # if relu_act:
@@ -299,23 +299,22 @@ def mish(x):
     return x * torch.tanh(F.softplus(x))
 
 
-class ResNetUNet(nn.Module):
+class ResNetUNetEncoder(nn.Module):
     def __init__(self, args):
-        super(ResNetUNet, self).__init__()
+        super(ResNetUNetEncoder, self).__init__()
 
         self.n_channel = args.n_channel
         #self.n_z = args.n_z
         self.img_height = args.img_height
         self.img_width = args.img_width
-        #self.pooled = args.pooled
+       
         self.descending = args.descending
-        # self.enc_p = args.enc_port
+        
         self.dropout = args.dropout
         relu_act = False#args.relu_act
         #self.resnet50 = args.resnet50
         self.batch_size = args.batch_size
-        #self.img_add = args.img_add
-        #self.single8 = args.single8
+        
         normalize = False#args.normalize
         bn = True#args.res_bn
         up_relu = True#args.relu_act
@@ -339,9 +338,9 @@ class ResNetUNet(nn.Module):
         no_resblk = args.n_resblk
         self.n_classes = args.n_classes
         self.print = Print()
-        #if args.resnet_torch:
-        self.layer1 = nn.Sequential(*self.base_layers[:3]) # size=(N, 64, x.H/2, x.W/2)
-        self.layer2 = nn.Sequential(*self.base_layers[3:5]) #  size=(N, 64, x.H/4, x.W/4)
+       
+        self.layer1 = nn.Sequential(*self.base_layers[:3]) # 
+        self.layer2 = nn.Sequential(*self.base_layers[3:5]) 
         self.layer3 = self.base_layers[5]  # size=(N, 128, x.H/8, x.W/8)  
         self.layer4 = self.base_layers[6]  # size=(N, 256, x.H/16, x.W/16) 
         self.layer5 = self.base_layers[7]  # size=(N, 512, x.H/32, x.W/32)
@@ -359,6 +358,100 @@ class ResNetUNet(nn.Module):
         self.down6 = UNetDown(512 + 512, 512)
         self.down7 = UNetDown(512, 512)
 
+        
+
+        self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512), nn.LeakyReLU(0.2,inplace=True))#256*348
+        self.fc = nn.Sequential(nn.Linear(512, self.n_classes), nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
+        self.critic = nn.Linear(self.n_classes, 1) 
+        # self.final = nn.Sequential(
+        #         nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
+        #     )
+
+    def forward(self, x):
+        x = x
+        h = self.img_height
+        w = self.img_width
+        nested = self.nested
+        attention = self.attention
+
+        #d0 = self.down0(x)
+        l1 = self.layer1(x)
+        d1 = self.down1(x)
+        
+        mz = torch.cat((l1,d1),1)
+        #if self.img_add:
+        #d1 = (d1 + l1)/2
+        l2 = self.layer2(l1)
+        d2 = self.down2(mz)
+
+        
+        mz = torch.cat((l2,d2),1)
+        l3 = self.layer3(l2)
+        d3 = self.down3(mz)
+
+        mz = torch.cat((l3,d3),1)
+        l4 = self.layer4(l3)
+        d4 = self.down4(mz)
+
+        mz = torch.cat((l4,d4),1)
+        l5 = self.layer5(l4)
+        d5 = self.down5(mz)
+
+        #self.print(l5)
+        l6 = self.pooling(l5)
+        #self.print(l6)
+        l7 = self.fc(l6)
+        l8 = self.critic(l7)
+
+        mz = torch.cat((l5,d5),1)
+        d6 = self.down6(mz)
+        
+        #d7 = self.down7(d6)
+
+        downstream = [d1,d2,d3,d4,d5,d6,l7,l8]
+       
+        return downstream
+
+class ResNetUNetDecoder(nn.Module):
+    def __init__(self, args):
+        super(ResNetUNetDecoder, self).__init__()
+
+        self.n_channel = args.n_channel
+        #self.n_z = args.n_z
+        self.img_height = args.img_height
+        self.img_width = args.img_width
+        #self.pooled = args.pooled
+        self.descending = args.descending
+        # self.enc_p = args.enc_port
+        self.dropout = args.dropout
+        #relu_act = False#args.relu_act
+        #self.resnet50 = args.resnet50
+        self.batch_size = args.batch_size
+        #self.img_add = args.img_add
+        #self.single8 = args.single8
+        #normalize = False#args.normalize
+        #bn = True#args.res_bn
+        #up_relu = True#args.relu_act
+        #res_relu = True#args.res_relu
+        #full_style = False#args.full_style
+        #swish_act = False#args.swish_act
+        #mish_act = args.mish_act
+        self.attention = args.attention
+        self.nested = args.nested
+        self.lateral = args.lateral
+        self.n_z = args.n_z
+        #self.n_classes = args.n_classes
+        # if self.resnet50:
+        #     self.base_model = resnet50(pretrained=False)
+        # else:
+        
+        #latent_dim = self.n_z
+        channels = self.n_channel
+        no_resblk = args.n_resblk
+        self.n_classes = args.n_classes
+        self.print = Print()
+        #if args.resnet_torch:
+        self.down7 = UNetDown(512, 512)
         if self.nested: 
             self.up1 = UNetUp(512, 512)
             self.res1 = nResNet(no_resblk, 512)
@@ -460,53 +553,40 @@ class ResNetUNet(nn.Module):
             self.up6 = UNetUp(128 + 64, 64)
             self.res6 = nResNet(no_resblk * 1, 64) 
 
-        self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512))#256*348
-        self.fc = nn.Sequential(nn.Linear(512, self.n_classes), nn.LeakyReLU(0.2)) # resnet18: 256
-        self.critic = nn.Linear(self.n_classes, 1) 
+        # self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512))#256*348
+        # self.fc = nn.Sequential(nn.Linear(512, self.n_classes), nn.LeakyReLU(0.2)) # resnet18: 256
+        # self.critic = nn.Linear(self.n_classes, 1) 
         self.final = nn.Sequential(
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
+        # self.label_emb = nn.Sequential(
+        #     nn.Embedding(self.n_classes, self.n_z)
+        # )
+        self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
+        self.reduce = nn.Sequential(nn.Conv2d(512+512, 512, 3, stride=1, padding=1))
 
-    def forward(self, x):
-        x = x
-        h = self.img_height
-        w = self.img_width
+    def forward(self, dd, noise=None, label=None):
+        d1,d2,d3,d4,d5,d6,l7,l8 = dd[0],dd[1],dd[2],dd[3],dd[4],dd[5],dd[6],dd[7]
+        #h = self.img_height
+        #w = self.img_width
+        #self.print(d6)
+        if noise is None:
+            noise = torch.normal(0, 1,size=(l7.shape[0],self.n_z)).cuda()
+        if label is None:
+            #label = torch.argmax(l7)
+            x = torch.mul(l7, noise)
+        else:
+            el= torch.nn.functional.one_hot(label, num_classes=self.n_classes)
+            x = torch.mul(el, noise)
+        xx = self.lin(x)
+        xx = xx.view(d6.shape[0],-1,4,6)
+        d6 = torch.cat((d6,xx),1)
+        d6 = self.reduce(d6)
+        d7 = self.down7(d6)
+        #self.print(d6)
+
         nested = self.nested
         attention = self.attention
-
-        #d0 = self.down0(x)
-        l1 = self.layer1(x)
-        d1 = self.down1(x)
-        
-        mz = torch.cat((l1,d1),1)
-        #if self.img_add:
-        d1 = (d1 + l1)/2
-        l2 = self.layer2(l1)
-        d2 = self.down2(mz)
-
-        
-        mz = torch.cat((l2,d2),1)
-        l3 = self.layer3(l2)
-        d3 = self.down3(mz)
-
-        mz = torch.cat((l3,d3),1)
-        l4 = self.layer4(l3)
-        d4 = self.down4(mz)
-
-        mz = torch.cat((l4,d4),1)
-        l5 = self.layer5(l4)
-        d5 = self.down5(mz)
-
-        #self.print(l5)
-        l6 = self.pooling(l5)
-        #self.print(l6)
-        l7 = self.fc(l6)
-        l8 = self.critic(l7)
-
-        mz = torch.cat((l5,d5),1)
-        d6 = self.down6(mz)
-        
-        d7 = self.down7(d6)
 
         if nested:
             u1 = self.up1(d7, self.res1(d6))
