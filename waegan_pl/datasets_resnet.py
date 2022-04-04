@@ -63,7 +63,7 @@ class ImageDataset(Dataset):
         nosignal = Image.new("RGB", image_B.size, (0,0,255))
         dummy = Image.new("RGB", image_B.size, (0,255,255))
         #label = self.target if np.sum(img_tmp) > np.sum(blank_image) else 0
-        diff = ImageChops.difference(image_B, blank)
+        #diff = ImageChops.difference(image_B, blank)
         if ImageChops.difference(image_B, blank).getbbox():
             if ImageChops.difference(image_B, dummy).getbbox():
                 if ImageChops.difference(image_B, nosignal).getbbox():
