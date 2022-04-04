@@ -361,8 +361,9 @@ class ResNetUNetEncoder(nn.Module):
         
 
         self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512), nn.LeakyReLU(0.2,inplace=True))#256*348
-        self.fc = nn.Sequential(nn.Linear(512, self.n_classes), nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
+        self.fc = nn.Sequential(nn.Linear(512, self.n_classes))#, nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
         self.critic = nn.Linear(self.n_classes, 1) 
+        self.fc1 = nn.Linear(512, 1) 
         # self.final = nn.Sequential(
         #         nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
         #     )
@@ -401,8 +402,8 @@ class ResNetUNetEncoder(nn.Module):
         l6 = self.pooling(l5)
         #self.print(l6)
         l7 = self.fc(l6)
-        l8 = self.critic(l7)
-
+        #l8 = self.critic(l7)
+        l8 = self.fc1(l6)
         mz = torch.cat((l5,d5),1)
         d6 = self.down6(mz)
         
