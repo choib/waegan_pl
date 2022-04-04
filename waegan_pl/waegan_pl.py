@@ -374,13 +374,13 @@ class WaeGAN(LightningModule):
 
     def train_dataloader(self):
         input_shape = (self.args.n_channel, self.args.img_height, self.args.img_width)
-        dataset = ImageDataset("%s/%s" % (self.args.dataroot,self.args.dataset) , input_shape, mode='train')
+        dataset = ImageDataset("%s/%s" % (self.args.dataroot,self.args.dataset) , input_shape, mode='train', target=self.args.n_class)
         return DataLoader(dataset, batch_size=self.args.batch_size, num_workers=24, pin_memory=True)
 
     def test_dataloader(self):
         input_shape = (self.args.n_channel, self.args.img_height, self.args.img_width)
         mode = self.args.val_target
-        dataset = ImageDataset("%s/%s" % (self.args.dataroot,self.args.dataset), input_shape, mode=mode )
+        dataset = ImageDataset("%s/%s" % (self.args.dataroot,self.args.dataset), input_shape, mode=mode, target=self.args.n_class )
         return DataLoader(dataset, batch_size= self.args.test_batch_size, shuffle=False, num_workers=24)
 
     def predict_dataloader(self):
