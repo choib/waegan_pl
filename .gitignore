@@ -1,6 +1,7 @@
 *.log
 data/
 temporary/
+waegan_pl/ckpt/
 waegan_pl/tmp/
 waegan_pl/save/
 waegan_pl/logparse/

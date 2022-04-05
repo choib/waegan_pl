@@ -57,8 +57,12 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32
 ```
 ```bash
-# when you training with pretrained weight
+# when you resume from a trained epoch for a reason
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --epoch [trained epoch -1]
+```
+# Transfer Learning (encoder only)
+```bash
+python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --epoch -1 --ckpt_dir "./ckpt" --ckpt_name "bestmodel.ckpt"
 ```
 # Testing
 ```bash

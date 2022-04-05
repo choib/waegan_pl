@@ -654,8 +654,11 @@ def main(args: Namespace) -> None:
     logging.info(args)
     logging.getLogger('PIL').setLevel(logging.WARNING)
 
-    if args.epoch !=0:
-        # Load pretrained models
+    if args.epoch < 0:
+        start_epoch = 0
+        ckpt = ModelCheckpoint(dirpath=args.ckpt_dir,filename=args.ckpt_name)
+        ckpt_path = os.path.join(args.ckpt_dir,args.ckpt_name)
+    elif args.epoch > 0:
         start_epoch = args.epoch - 1
         if args.last:
             ckpt = ModelCheckpoint(dirpath=save_path,filename="last")
@@ -673,7 +676,14 @@ def main(args: Namespace) -> None:
     
     if args.train:
         #trainer.tune(model)
-        if args.epoch !=0:
+        if args.epoch < 0:
+            model = model.load_from_checkpoint(ckpt_path)
+            #model.generator_enc.apply(weights_init_normal)
+            model.generator_dec.apply(weights_init_normal)
+            #model.discriminator_unet.apply(weights_init_normal)
+            model.train()
+            trainer.fit(model)
+        elif args.epoch > 0:
             model = model.load_from_checkpoint(ckpt_path)
             model.train()
             trainer.fit(model, ckpt_path=ckpt_path)
