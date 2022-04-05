@@ -56,18 +56,18 @@ class ImageDataset(Dataset):
             aug_A = transforms.functional.affine(img=image_A, angle=15, translate=(0.1, 0.1), scale=(0.9), shear=0.1)
         else:
             aug_A = self.aug_func(image_A)
-        #img_tmp = np.asarray(image_B, dtype='uint8')
-        #blank_image = np.zeros((self.input_shape[1],self.input_shape[2],self.input_shape[0]), np.uint8)
-        #target, _, area_p, _ =pp.critic_segmentation(img_tmp)
+              
         blank = Image.new("RGB", image_B.size, (0,0,0))
         nosignal = Image.new("RGB", image_B.size, (0,0,255))
         dummy = Image.new("RGB", image_B.size, (0,255,255))
-        #label = self.target if np.sum(img_tmp) > np.sum(blank_image) else 0
-        #diff = ImageChops.difference(image_B, blank)
+        
         if ImageChops.difference(image_B, blank).getbbox():
             if ImageChops.difference(image_B, dummy).getbbox():
                 if ImageChops.difference(image_B, nosignal).getbbox():
                     label = self.target
+                    if self.target < 0:
+                        img_tmp = np.asarray(image_B, dtype='uint8')
+                        label, _, _, _, _ =pp.critic_segmentation(img_tmp)
                 else:
                     label = 1
             else:
