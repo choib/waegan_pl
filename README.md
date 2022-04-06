@@ -65,6 +65,7 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 ```bash
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --resnet50
 ```
+* For reading class no. from gt color, please use --n_class -1. You can adjust colormap in post_process.py if necessary. Using green color regardless of class, please use --n_class N (class no.) when training.
 
 # Transfer Learning (encoder only)
 * Use -1 epoch to copy pretrained network from ckpt_dir and ckpt_name. After transfer whole network, decoder network will be initialized.
