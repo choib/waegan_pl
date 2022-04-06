@@ -63,7 +63,6 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 ```
 * with resnet50 backbone (resnet101 internally)
 ```bash
-# when you resume from a trained epoch for a reason
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --resnet50
 ```
 
