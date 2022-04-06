@@ -10,7 +10,7 @@ from torch.autograd import grad as torch_grad
 
 from torchvision.models import resnet18
 from torchvision.models import resnet50
-#from torchvision.models import resnet101
+from torchvision.models import resnet101
 
 
 
@@ -304,38 +304,31 @@ class ResNetUNetEncoder(nn.Module):
         super(ResNetUNetEncoder, self).__init__()
 
         self.n_channel = args.n_channel
-        #self.n_z = args.n_z
         self.img_height = args.img_height
         self.img_width = args.img_width
        
         self.descending = args.descending
-        
+        self.resnet50 = args.resnet50
         self.dropout = args.dropout
-        relu_act = False#args.relu_act
-        #self.resnet50 = args.resnet50
         self.batch_size = args.batch_size
         
-        normalize = False#args.normalize
-        bn = True#args.res_bn
-        up_relu = True#args.relu_act
-        res_relu = True#args.res_relu
-        full_style = False#args.full_style
-        swish_act = False#args.swish_act
-        #mish_act = args.mish_act
+        
         self.attention = args.attention
         self.nested = args.nested
         self.lateral = args.lateral
 
-        # if self.resnet50:
-        #     self.base_model = resnet50(pretrained=False)
-        # else:
-        
-        self.base_model = resnet18(pretrained=False)
+       
+        #
+        if self.resnet50:
+            #self.base_model = resnet50(pretrained=False)
+            self.base_model = resnet101(pretrained=False)
+        else:
+            self.base_model = resnet18(pretrained=False)
         self.base_layers = list(self.base_model.children())  
 
         #latent_dim = self.n_z
         channels = self.n_channel
-        no_resblk = args.n_resblk
+        
         self.n_classes = args.n_classes
         self.print = Print()
        
@@ -348,32 +341,30 @@ class ResNetUNetEncoder(nn.Module):
         #else:
         self.down1 = UNetDown(channels, 64, normalize=False)  
         self.down2 = UNetDown(64 + 64, 128)
-        self.down3 = UNetDown(128 + 64, 256)
-        self.down4 = UNetDown(256 + 128, 512)
-        self.down5 = UNetDown(512 + 256, 512)
-        # if self.resnet50:
-        #     self.down6 = UNetDown(2048, 1024)
-        #     self.down7 = UNetDown(1024, 1024)
-        # else:
-        self.down6 = UNetDown(512 + 512, 512)
+       
+        if self.resnet50:
+            self.down3 = UNetDown(128 + 256, 256)
+            self.down4 = UNetDown(256 + 512, 512)
+            self.down5 = UNetDown(512 + 1024, 512)
+            self.down6 = UNetDown(512 + 2048, 512)
+        else:
+            self.down3 = UNetDown(128 + 64, 256)
+            self.down4 = UNetDown(256 + 128, 512)
+            self.down5 = UNetDown(512 + 256, 512)
+            self.down6 = UNetDown(512 + 512, 512)
+            
         self.down7 = UNetDown(512, 512)
-
         
-
-        self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512), nn.LeakyReLU(0.2,inplace=True))#256*348
+        if self.resnet50:
+            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(2048*8*12, 512), nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
+        else:
+            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512), nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
         self.fc = nn.Sequential(nn.Linear(512, self.n_classes))#, nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
         self.critic = nn.Linear(self.n_classes, 1) 
         self.fc1 = nn.Linear(512, 1) 
-        # self.final = nn.Sequential(
-        #         nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
-        #     )
-
+        
     def forward(self, x):
         x = x
-        h = self.img_height
-        w = self.img_width
-        nested = self.nested
-        attention = self.attention
 
         #d0 = self.down0(x)
         l1 = self.layer1(x)
@@ -398,9 +389,9 @@ class ResNetUNetEncoder(nn.Module):
         l5 = self.layer5(l4)
         d5 = self.down5(mz)
 
-        #self.print(l5)
+        # self.print(l5)
         l6 = self.pooling(l5)
-        #self.print(l6)
+        # self.print(l6)
         l7 = self.fc(l6)
         #l8 = self.critic(l7)
         l8 = self.fc1(l6)
@@ -421,37 +412,19 @@ class ResNetUNetDecoder(nn.Module):
         #self.n_z = args.n_z
         self.img_height = args.img_height
         self.img_width = args.img_width
-        #self.pooled = args.pooled
         self.descending = args.descending
-        # self.enc_p = args.enc_port
         self.dropout = args.dropout
-        #relu_act = False#args.relu_act
         #self.resnet50 = args.resnet50
         self.batch_size = args.batch_size
-        #self.img_add = args.img_add
-        #self.single8 = args.single8
-        #normalize = False#args.normalize
-        #bn = True#args.res_bn
-        #up_relu = True#args.relu_act
-        #res_relu = True#args.res_relu
-        #full_style = False#args.full_style
-        #swish_act = False#args.swish_act
-        #mish_act = args.mish_act
         self.attention = args.attention
         self.nested = args.nested
         self.lateral = args.lateral
         self.n_z = args.n_z
-        #self.n_classes = args.n_classes
-        # if self.resnet50:
-        #     self.base_model = resnet50(pretrained=False)
-        # else:
-        
-        #latent_dim = self.n_z
         channels = self.n_channel
         no_resblk = args.n_resblk
         self.n_classes = args.n_classes
         self.print = Print()
-        #if args.resnet_torch:
+       
         self.down7 = UNetDown(512, 512)
         if self.nested: 
             self.up1 = UNetUp(512, 512)
@@ -554,15 +527,11 @@ class ResNetUNetDecoder(nn.Module):
             self.up6 = UNetUp(128 + 64, 64)
             self.res6 = nResNet(no_resblk * 1, 64) 
 
-        # self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512))#256*348
-        # self.fc = nn.Sequential(nn.Linear(512, self.n_classes), nn.LeakyReLU(0.2)) # resnet18: 256
-        # self.critic = nn.Linear(self.n_classes, 1) 
+       
         self.final = nn.Sequential(
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
-        # self.label_emb = nn.Sequential(
-        #     nn.Embedding(self.n_classes, self.n_z)
-        # )
+        
         self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
         self.reduce = nn.Sequential(nn.Conv2d(512+512, 512, 3, stride=1, padding=1))
 

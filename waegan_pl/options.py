@@ -52,8 +52,7 @@ class Options():
         parser.add_argument("--dataroot", dest="dataroot", default='../../data', type=str, help="root directory of data files")
         parser.add_argument("--ckpt_dir", dest="ckpt_dir", default='./ckpt', type=str, help="root directory of ckpt files")
         parser.add_argument("--ckpt_name", dest="ckpt_name", default='bestmodel.ckpt', type=str, help="name of ckpt files")
-      
-       #parser.add_argument("--smoothing", dest="smth", default=0.45, type=float, help="label smoothing")
+        parser.add_argument("--resnet50", dest="resnet50", action='store_true', help="switch to resnet101 encoder")
      
         return parser
     

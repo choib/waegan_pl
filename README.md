@@ -53,6 +53,7 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 ```
 
 # Training
+* with resnet18 backbone
 ```bash
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32
 ```
@@ -60,7 +61,15 @@ python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --preci
 # when you resume from a trained epoch for a reason
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --epoch [trained epoch -1]
 ```
+* with resnet50 backbone (resnet101 internally)
+```bash
+# when you resume from a trained epoch for a reason
+python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --resnet50
+```
+
 # Transfer Learning (encoder only)
+* Use -1 epoch to copy pretrained network from ckpt_dir and ckpt_name. After transfer whole network, decoder network will be initialized.
+
 ```bash
 python waegan_pl.py --date "" --dataset "cityscape_data" --batch_size 15 --precision 32 --epoch -1 --ckpt_dir "./ckpt" --ckpt_name "bestmodel.ckpt"
 ```
