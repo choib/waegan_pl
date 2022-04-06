@@ -316,7 +316,7 @@ class ResNetUNetEncoder(nn.Module):
         self.attention = args.attention
         self.nested = args.nested
         self.lateral = args.lateral
-
+        self.fcone = args.fcone
        
         #
         if self.resnet50:
@@ -393,8 +393,11 @@ class ResNetUNetEncoder(nn.Module):
         l6 = self.pooling(l5)
         # self.print(l6)
         l7 = self.fc(l6)
-        #l8 = self.critic(l7)
-        l8 = self.fc1(l6)
+      
+        if self.fcone:
+            l8 = self.fc1(l6)
+        else:
+            l8 = self.critic(l7)
         mz = torch.cat((l5,d5),1)
         d6 = self.down6(mz)
         

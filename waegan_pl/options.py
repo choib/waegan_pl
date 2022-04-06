@@ -53,6 +53,7 @@ class Options():
         parser.add_argument("--ckpt_dir", dest="ckpt_dir", default='./ckpt', type=str, help="root directory of ckpt files")
         parser.add_argument("--ckpt_name", dest="ckpt_name", default='bestmodel.ckpt', type=str, help="name of ckpt files")
         parser.add_argument("--resnet50", dest="resnet50", action='store_true', help="switch to resnet101 encoder")
+        parser.add_argument("--fcone", dest="fcone", action='store_true', help="switch to fc layer configuration encoder")
      
         return parser
     
