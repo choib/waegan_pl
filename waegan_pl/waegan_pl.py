@@ -282,13 +282,10 @@ class WaeGAN(LightningModule):
             self.log("genenc loss",genenc_loss) 
 
             if self.args.clip_weight:
-                #enc_loss# if self.args.gram else 0
+                
                 for p in self.generator_enc.parameters():
                     p.data.clamp_(-self.args.clip_value, self.args.clip_value)
-            # else:
-            #     gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
-            #     #enc_loss# if self.args.gram else 0
-            #     d_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
+            
             
             tqdm_dict = {'genenc_loss': genenc_loss.detach()}
             
@@ -304,33 +301,23 @@ class WaeGAN(LightningModule):
             frozen_params(self.generator_enc)
             frozen_params(self.generator_dec)
 
-            #noisy = sv.gaussian(real_A,mean=0,stddev=self.args.sigma)
-            #generated, encoded_, e1_, e2_ = self(real_A.detach())
-            #_, z_, z1_, z2_ = self.generator_unet(noisy)
-            #noisy = aug_A
+            
             downstream = self.generator_enc(real_A.detach())
             e1_ = downstream[-2]
             e2_ = downstream[-1]
             generated, _, _, _ = self.generator_dec(downstream,z,labels)
-            # downstream = self.generator_enc(noisy)
-            # z1_ = downstream[-2]
-            # z2_ = downstream[-1]
-            # _, z_, _, _ = self.generator_dec(downstream,z, gen_labels)
-           
-            # enc_loss =(self.mse_loss(encoded_ , z_))
-            # self.log("enc loss",enc_loss) # just monitor
+            
             
             f_loss = self.args.k_wass*self.discriminator_unet(real_B.detach())
             h_loss = self.args.k_wass*self.discriminator_unet(generated.detach())
             d_loss = (torch.mean(f_loss) - torch.mean(h_loss))#wasserstein loss
            
             if self.args.clip_weight:
-                #enc_loss# if self.args.gram else 0
+                
                 for p in self.discriminator_unet.parameters():
                     p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             else:
                 gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
-                #enc_loss# if self.args.gram else 0
                 d_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
             
            

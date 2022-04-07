@@ -35,6 +35,7 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
     #enc_samples= None
     no_sample = 0
     sum_err = 0
+    sum_val = 0
     for img_A, img_B, aug_A in zip(imgs["A"], imgs["B"], imgs["aug_A"]):
         real_A = img_A.view(1, *img_A.shape)
         real_A = Variable(real_A.type(Tensor))
@@ -44,9 +45,9 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
             aug_A = aug_A.view(1, *aug_A.shape)
             aug_A = Variable(aug_A.type(Tensor))
             noisy = aug_A
-        #z = Variable(Tensor(np.random.normal(0, 1, (real_A.shape[0],args.n_z))))     
+            
         fake_B, latent_img, _, validity   = generator_dec(generator_enc(real_A))
-        validity = validity.mean().item()
+        sum_val += validity 
         real_B = img_B.view(1, *img_B.shape)
         real_B = Variable(real_B.type(Tensor))
         sum_err += criterion(fake_B, real_B)
@@ -59,12 +60,7 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
         latent_img = torch.cat([x for x in latent_img.data.cpu()], -1)
         #enc_img = torch.cat([x for x in encoded.data.cpu()], -1)
         noisy = torch.cat([x for x in noisy.data.cpu()], -1)
-        # fake_B = torch.cat(fake_B.data.cpu()[0], -1)
-        # overlap = torch.cat(overlap.data.cpu()[0], -1)
-        # real_A = torch.cat(real_A.data.cpu()[0], -1)
-        # real_B = torch.cat(real_B.data.cpu()[0], -1)
-        # latent_img = torch.cat(latent_img.data.cpu()[0], -1)
-        # noisy = torch.cat(noisy.data.cpu()[0], -1)
+        
         real_A = torch.cat((real_A,noisy),-1)
 
         real_samples = real_A if real_samples is None else torch.cat((real_samples, real_A), 1)
@@ -77,7 +73,8 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
         del real_A, real_B, latent_img, fake_B, noisy
         torch.cuda.empty_cache()
     test_loss = sum_err.item()/no_sample
-    str = "\tEpoch: {} Test: {:<10.6e} Validity:{:<10.6e}".format(batches_done,test_loss, validity)
+    test_val = sum_val.item()/no_sample
+    str = "\tEpoch: {} Test: {:<10.6e} Validity:{:<10.6e}".format(batches_done,test_loss, test_val)
     #sys.stdout.write(str)
     logging.info(str)
     save_image(real_samples, "images/%s_photo_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
@@ -86,4 +83,4 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
     save_image(overlap_samples, "images/%s_overlap_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
     save_image(latent_samples, "images/%s_latent_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
     #save_image(enc_samples, "images/%s_encoder_%s/%s_%s.png" % (args.date, args.dataset, batches_done, no_sample), nrow=1, normalize=True)
-    return test_loss, validity
+    return test_loss, test_val
