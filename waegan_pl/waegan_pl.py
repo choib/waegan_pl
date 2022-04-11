@@ -281,10 +281,10 @@ class WaeGAN(LightningModule):
             genenc_loss = self.args.k_wass*((real_loss + fake_loss)/4.0 + label_loss + enc_loss)
             self.log("genenc loss",genenc_loss) 
 
-            if self.args.clip_weight:
+            # if self.args.clip_weight:
                 
-                for p in self.generator_enc.parameters():
-                    p.data.clamp_(-self.args.clip_value, self.args.clip_value)
+            #     for p in self.generator_enc.parameters():
+            #         p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             
             
             tqdm_dict = {'genenc_loss': genenc_loss.detach()}

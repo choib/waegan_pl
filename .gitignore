@@ -15,3 +15,4 @@ waegan_pl/pytorch_msssim/__pycache__/
 *old.py
 *.py[cod]
 hparams.yaml
+waegan_pl/waegan_sp.py
