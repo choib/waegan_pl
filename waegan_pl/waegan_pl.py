@@ -225,7 +225,7 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(aug_A)
             #e1_ = downstream[-2]
             #e2_ = downstream[-1]
-            _, encoded, _, _ = self.generator_dec(downstream, z, gen_labels)
+            _, encoded, _, _ = self.generator_dec(downstream)#, z, gen_labels)
             
             m_loss = self.mse_loss(real_B, generated) 
             e_loss = self.mse_loss(real_A, encoded)
