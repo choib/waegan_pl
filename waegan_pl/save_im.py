@@ -61,7 +61,7 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
         #enc_img = torch.cat([x for x in encoded.data.cpu()], -1)
         noisy = torch.cat([x for x in noisy.data.cpu()], -1)
         
-        real_A = torch.cat((real_A,noisy),-1)
+        #real_A = torch.cat((real_A,noisy),-1)
 
         real_samples = real_A if real_samples is None else torch.cat((real_samples, real_A), 1)
         gt_samples = real_B if gt_samples is None else torch.cat((gt_samples, real_B), 1)

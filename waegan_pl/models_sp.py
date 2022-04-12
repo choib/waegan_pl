@@ -617,11 +617,18 @@ class ResNetUNetDecoder(nn.Module):
             u4 = self.up4(u3, self.res4(d3))
             u5 = self.up5(u4, self.res5(d2))
             u6 = self.up6(u5, self.res6(d1))  
-
+            
+        v1 = self.up1(d7, self.res1(d6))
+        v2 = self.up2(v1, self.res2(d5))
+        v3 = self.up3(v2, self.res3(d4))
+        v4 = self.up4(v3, self.res4(d3))
+        v5 = self.up5(v4, self.res5(d2))
+        v6 = self.up6(v5, self.res6(d1))
         
-        z0 = gram_matrix(d7)
+        #z0 = gram_matrix(d7)
         #z1 = gram_matrix(d6)
         #z2 = gram_matrix(d5)
+        z0 = self.final(v6)
         fout = self.final(u6)
         #z0 = z.view(z.size(0),1,z.size(1),-1)
         #return self.final(u6), z0, eout, l6
