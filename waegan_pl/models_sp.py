@@ -617,7 +617,7 @@ class ResNetUNetDecoder(nn.Module):
             u4 = self.up4(u3, self.res4(d3))
             u5 = self.up5(u4, self.res5(d2))
             u6 = self.up6(u5, self.res6(d1))  
-            
+
         v1 = self.up1(d7, self.res1(d6))
         v2 = self.up2(v1, self.res2(d5))
         v3 = self.up3(v2, self.res3(d4))
@@ -644,7 +644,7 @@ class Print(nn.Module):
 class MultiDiscriminator(nn.Module):
     def __init__(self, args):
         super(MultiDiscriminator, self).__init__()
-        self.normalize = False#args.normalize
+        self.normalize = True#args.normalize
         self.disc_channel = args.disc_channel
         self.relu_act = True#args.relu_act
         self.disc_kernel = args.disc_kernel

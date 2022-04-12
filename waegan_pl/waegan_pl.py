@@ -192,27 +192,26 @@ class WaeGAN(LightningModule):
         if optimizer_idx == 0 :
             frozen_params(self.discriminator_unet)
             frozen_params(self.discriminator_vnet)
-            frozen_params(self.generator_enc)
+            free_params(self.generator_enc)
             free_params(self.generator_dec)
-
-            #generated, encoded_, e1_, _ = self.generator_unet(real_A)
-            #_, z_, z1_, _ = self(noisy)
-
+             
+            valid = Variable(Tensor(real_A.shape[0], 1).fill_(1.0), requires_grad=False)
             downstream = self.generator_enc(real_A)
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            generated, encoded, _, _ = self.generator_dec(downstream)#,z,torch.argmax(e1_, dim=1))
-            #downstream = self.generator_enc(noisy)
-            #z1_ = downstream[-2]
-            #z2_ = downstream[-1]
-            #_, _, _, _ = self.generator_dec(downstream,z, gen_labels)
-           
-            # self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
-            # match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
-            # label_loss = self.aux_loss(z1_,e1_)
-            # self.log("matching",match.mean().item())
-            # self.log("label loss",label_loss)
-            m_loss = self.mse_loss(real_B, generated) + self.mse_loss(aug_A, encoded)
+            generated, _, _, _ = self.generator_dec(downstream, z, labels)
+            downstream = self.generator_enc(aug_A)
+            #e1_ = downstream[-2]
+            #e2_ = downstream[-1]
+            _, encoded, _, _ = self.generator_dec(downstream, z, gen_labels)
+            
+            m_loss = self.mse_loss(real_B, generated) 
+            e_loss = self.mse_loss(real_A, encoded)
+
+            real_aux, real_adv = e1_, e2_
+            labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes)
+            real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, labels_onehot)
+
             if self.args.descending:
                 s_r = (1-self.current_epoch/self.args.train_max)*self.args.style_ratio
             else:
@@ -221,13 +220,10 @@ class WaeGAN(LightningModule):
             style_loss = (s_r)*(1 - self.criterion(real_B, generated))\
                 + (1-s_r)* m_loss
             
-            # enc_loss =(self.mse_loss(encoded_ , z_)) 
-            # self.log("enc loss",enc_loss) 
-            # enc_loss = self.args.k_wass*enc_loss       
-
+           
             h_loss = self.args.k_wass*( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )
             wass_loss = -torch.mean(h_loss)
-            g_loss = (style_loss + wass_loss)# + enc_loss) 
+            g_loss = (style_loss + wass_loss + e_loss + 0.5*real_loss) 
            
             self.log("style loss",style_loss)
             self.log("mse loss",m_loss)
@@ -252,17 +248,13 @@ class WaeGAN(LightningModule):
             valid = Variable(Tensor(real_A.shape[0], 1).fill_(1.0), requires_grad=False)
             fake = Variable(Tensor(real_A.shape[0], 1).fill_(0.0), requires_grad=False)
 
-            noisy = sv.gaussian(aug_A,mean=0,stddev=self.args.sigma)
-            #generated, encoded_, e1_, e2_ = self(real_A.detach())
-            #_, z_, z1_, z2_ = self.generator_unet(noisy)
             downstream = self.generator_enc(real_A)
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            generated, encoded, _, _ = self.generator_dec(downstream,z,labels)
-            downstream = self.generator_enc(encoded)
+            #_, encoded, _, _ = self.generator_dec(downstream,z,labels)
+            downstream = self.generator_enc(aug_A)#encoded)
             z1_ = downstream[-2]
             z2_ = downstream[-1]
-            #_, z_, _, _ = self.generator_dec(downstream,z, gen_labels)
            
             real_aux, real_adv = e1_, e2_
             labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes)
@@ -282,14 +274,9 @@ class WaeGAN(LightningModule):
             self.log("enc loss",enc_loss) 
             enc_loss = self.args.k_wass*enc_loss   
 
-            genenc_loss = self.args.k_wass*((real_loss + fake_loss)/4.0 + label_loss + enc_loss)
+            genenc_loss = ((real_loss + fake_loss)/4.0+ enc_loss)# + label_loss 
             self.log("genenc loss",genenc_loss) 
 
-            # if self.args.clip_weight:
-                
-            #     for p in self.generator_enc.parameters():
-            #         p.data.clamp_(-self.args.clip_value, self.args.clip_value)
-            
             
             tqdm_dict = {'genenc_loss': genenc_loss.detach()}
             
@@ -300,8 +287,47 @@ class WaeGAN(LightningModule):
             })
             return output
 
-        elif optimizer_idx == 2 or optimizer_idx == 3:
+        elif optimizer_idx == 2:
             free_params(self.discriminator_unet)
+            frozen_params(self.discriminator_vnet)
+            frozen_params(self.generator_enc)
+            frozen_params(self.generator_dec)
+
+            
+            downstream = self.generator_enc(real_A.detach())
+            e1_ = downstream[-2]
+            e2_ = downstream[-1]
+            generated, _, _, _ = self.generator_dec(downstream)
+            
+            
+            f_loss = self.args.k_wass*self.discriminator_unet(real_B.detach())
+            h_loss = self.args.k_wass*self.discriminator_unet(generated.detach())
+            d_loss = (torch.mean(f_loss) - torch.mean(h_loss))#wasserstein loss
+           
+            if self.args.clip_weight:
+                
+                for p in self.discriminator_unet.parameters():
+                    p.data.clamp_(-self.args.clip_value, self.args.clip_value)
+               
+            else:
+                gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
+                d_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
+            
+            d_loss = -d_loss.float()
+           
+            self.log("discriminator loss",d_loss, sync_dist=True)
+            
+            tqdm_dict = {'d_loss': d_loss.detach()}
+            
+            output = OrderedDict({
+                'loss': d_loss,
+                'progress_bar': tqdm_dict,
+                'log': tqdm_dict
+            })
+            return output
+
+        elif optimizer_idx == 3:
+            frozen_params(self.discriminator_unet)
             free_params(self.discriminator_vnet)
             frozen_params(self.generator_enc)
             frozen_params(self.generator_dec)
@@ -310,36 +336,29 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A.detach())
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            generated, encoded, _, _ = self.generator_dec(downstream,z,labels)
+            _, encoded, _, _ = self.generator_dec(downstream)
             
-            
-            f_loss = self.args.k_wass*self.discriminator_unet(real_B.detach())
-            h_loss = self.args.k_wass*self.discriminator_unet(generated.detach())
-            d_loss = (torch.mean(f_loss) - torch.mean(h_loss))#wasserstein loss
-           
-            fv_loss = self.args.k_wass*self.discriminator_vnet(aug_A.detach())
+            fv_loss = self.args.k_wass*self.discriminator_vnet(real_A.detach())
             hv_loss = self.args.k_wass*self.discriminator_vnet(encoded.detach())
             dv_loss = (torch.mean(fv_loss) - torch.mean(hv_loss))
+            
 
             if self.args.clip_weight:
                 
-                for p in self.discriminator_unet.parameters():
-                    p.data.clamp_(-self.args.clip_value, self.args.clip_value)
                 for p in self.discriminator_vnet.parameters():
                     p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             else:
                 gradient_penalty = self.compute_gradient_penalty(real_B.data, generated.data)
-                d_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
+                dv_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
             
-            d_loss += dv_loss
+            dv_loss = -dv_loss.float()
            
-            d_loss = -d_loss.float()
-            self.log("discriminator loss",d_loss, sync_dist=True)
+            self.log("discriminator loss",dv_loss, sync_dist=True)
             
-            tqdm_dict = {'d_loss': d_loss.detach()}
+            tqdm_dict = {'d_loss': dv_loss.detach()}
             
             output = OrderedDict({
-                'loss': d_loss,
+                'loss': dv_loss,
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
