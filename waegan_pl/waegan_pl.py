@@ -214,18 +214,17 @@ class WaeGAN(LightningModule):
         if optimizer_idx == 0 :
             frozen_params(self.discriminator_unet)
             frozen_params(self.discriminator_vnet)
-            free_params(self.generator_enc)
+            frozen_params(self.generator_enc)
             free_params(self.generator_dec)
              
             valid = Variable(Tensor(real_A.shape[0], 1).fill_(1.0), requires_grad=False)
             downstream = self.generator_enc(real_A)
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            generated, _, _, _ = self.generator_dec(downstream, z, labels)
-            downstream = self.generator_enc(aug_A)
-            #e1_ = downstream[-2]
+            generated, encoded, _, _ = self.generator_dec(downstream, z, labels)
+            downstream = self.generator_enc(encoded)
             #e2_ = downstream[-1]
-            _, encoded, _, _ = self.generator_dec(downstream)#, z, gen_labels)
+            _, encoded, _, _ = self.generator_dec(downstream, z, gen_labels)
             
             m_loss = self.mse_loss(real_B, generated) 
             e_loss = self.mse_loss(real_A, encoded)
@@ -243,7 +242,7 @@ class WaeGAN(LightningModule):
                 + (1-s_r)* m_loss
             
            
-            h_loss = ( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )#self.args.k_wass*
+            h_loss = self.args.k_wass*( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )#
             wass_loss = -torch.mean(h_loss)
             g_loss = (style_loss + wass_loss + e_loss + 0.5*real_loss) 
            
@@ -273,8 +272,8 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A)
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            #_, encoded, _, _ = self.generator_dec(downstream,z,labels)
-            downstream = self.generator_enc(aug_A)#encoded)
+            _, encoded, _, _ = self.generator_dec(downstream,z,labels)
+            downstream = self.generator_enc(encoded)
             z1_ = downstream[-2]
             z2_ = downstream[-1]
            
@@ -294,7 +293,7 @@ class WaeGAN(LightningModule):
 
             enc_loss =(self.mse_loss(e1_ , z1_)) 
             self.log("enc loss",enc_loss) 
-            enc_loss = self.args.k_wass*enc_loss   
+            #enc_loss = self.args.k_wass*enc_loss   
 
             genenc_loss = ((real_loss + fake_loss)/4.0+ enc_loss)# + label_loss 
             self.log("genenc loss",genenc_loss) 
