@@ -42,7 +42,7 @@ class Options():
         parser.add_argument("--style_ratio", dest="style_ratio", default=0.5, type=float, help ="ratio of mse and style loss")
         parser.add_argument("--nested", dest="nested", action='store_true', help="flag to enable nested u-net")
         parser.add_argument("--no_attention", dest="attention", action='store_false', help="flag to enable attention block for decoder")
-        parser.add_argument("--lateral", dest="lateral", action='store_true', help="flag to enable lateral attention layer")
+        parser.add_argument("--lateral", dest="lateral", action='store_false', help="flag to enable disable lateral attention layer")
         parser.add_argument("--uncertainty", dest="uncertainty", default=0.05, type=float, help="threshold to ask help")
         parser.add_argument("--precision", dest="precision", default=16, type=int, help="Half or 32bit precision")
         parser.add_argument("--gpu", dest="gpu", default=1, type=int, help="no. of gpus to use")

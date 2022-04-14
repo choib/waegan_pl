@@ -107,7 +107,7 @@ class Reshape(nn.Module):
             )
 #https://github.com/LeeJunHyun/Image_Segmentation/blob/master/network.py
 class AttentionBlock(nn.Module):
-    def __init__(self,F_g,F_l,F_int, lat=False):
+    def __init__(self,F_g,F_l,F_int, lat=True):
         super(AttentionBlock,self).__init__()
         self.lateral = lat
         self.W_g = nn.Sequential(
@@ -479,7 +479,7 @@ class ResNetUNetDecoder(nn.Module):
             self.res6_5 = nResNet(no_resblk, 64+320) 
        
         elif self.attention:
-            if self.lateral:
+            if not self.lateral:
                 self.up1 = UNetUp(512, 512)
                 self.res1 = nResNet(no_resblk * 8, 512)
                 self.att1 = AttentionBlock(1024,512,512,lat=True)
@@ -604,7 +604,7 @@ class ResNetUNetDecoder(nn.Module):
             u6_5 = self.up6_5(u5_4, self.res6_4(u6_4))
             u6 = self.up6(u5, self.res6_5(u6_5))   
         elif attention:
-            if self.lateral:
+            if not self.lateral:
                 a1 = self.att1((v1), self.res1(d6))#a1 = self.att1((d6), self.res1(d6))
                 u1 = self.up1(d7, self.res1(a1))
                 a2 = self.att2((v2), self.res2(d5))#a2 = self.att2((d5), self.res2(d5))
