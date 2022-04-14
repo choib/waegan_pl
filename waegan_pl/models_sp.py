@@ -107,7 +107,7 @@ class Reshape(nn.Module):
             )
 #https://github.com/LeeJunHyun/Image_Segmentation/blob/master/network.py
 class AttentionBlock(nn.Module):
-    def __init__(self,F_g,F_l,F_int, lat=True):
+    def __init__(self,F_g,F_l,F_int, lat=False):
         super(AttentionBlock,self).__init__()
         self.lateral = lat
         self.W_g = nn.Sequential(
@@ -479,7 +479,7 @@ class ResNetUNetDecoder(nn.Module):
             self.res6_5 = nResNet(no_resblk, 64+320) 
        
         elif self.attention:
-            if not self.lateral:
+            if self.lateral==True:
                 self.up1 = UNetUp(512, 512)
                 self.res1 = nResNet(no_resblk * 8, 512)
                 self.att1 = AttentionBlock(1024,512,512,lat=True)
@@ -541,9 +541,9 @@ class ResNetUNetDecoder(nn.Module):
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
         
-        self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
-        self.reduce = nn.Sequential(nn.Conv2d(512+512, 512, 3, stride=1, padding=1))
-
+        self.lin = nn.Sequential(nn.Linear(self.n_classes, 32 * 4*6))
+        self.reduce = nn.Sequential(nn.Conv2d(512+32, 512, 3, stride=1, padding=1))
+        self.label_emb = nn.Embedding(self.n_classes,self.n_z)
     def forward(self, dd, noise=None, label=None):
         d1,d2,d3,d4,d5,d6,l7,l8 = dd[0],dd[1],dd[2],dd[3],dd[4],dd[5],dd[6],dd[7]
         #h = self.img_height
@@ -554,9 +554,12 @@ class ResNetUNetDecoder(nn.Module):
         if label is None:
             #label = torch.argmax(l7)
             x = torch.mul(l7, noise)
+            #print("no label:",x)
         else:
-            el= torch.nn.functional.one_hot(label, num_classes=self.n_classes)
+            #el= torch.nn.functional.one_hot(label, num_classes=self.n_classes)
+            el = self.label_emb(label)
             x = torch.mul(el, noise)
+            #print("label:",label,x)
         xx = self.lin(x)
         xx = xx.view(d6.shape[0],-1,4,6)
         d6 = torch.cat((d6,xx),1)
@@ -604,7 +607,7 @@ class ResNetUNetDecoder(nn.Module):
             u6_5 = self.up6_5(u5_4, self.res6_4(u6_4))
             u6 = self.up6(u5, self.res6_5(u6_5))   
         elif attention:
-            if not self.lateral:
+            if self.lateral==True:
                 a1 = self.att1((v1), self.res1(d6))#a1 = self.att1((d6), self.res1(d6))
                 u1 = self.up1(d7, self.res1(a1))
                 a2 = self.att2((v2), self.res2(d5))#a2 = self.att2((d5), self.res2(d5))

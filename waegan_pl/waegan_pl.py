@@ -214,7 +214,7 @@ class WaeGAN(LightningModule):
         if optimizer_idx == 0 :
             frozen_params(self.discriminator_unet)
             frozen_params(self.discriminator_vnet)
-            frozen_params(self.generator_enc)
+            free_params(self.generator_enc)
             free_params(self.generator_dec)
              
             valid = Variable(Tensor(real_A.shape[0], 1).fill_(1.0), requires_grad=False)
@@ -244,12 +244,13 @@ class WaeGAN(LightningModule):
            
             h_loss = self.args.k_wass*( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )#
             wass_loss = -torch.mean(h_loss)
-            g_loss = (style_loss + wass_loss + self.args.k_wass*e_loss + self.args.k_wass*0.5*real_loss) 
+            g_loss = (style_loss + wass_loss + e_loss + self.args.k_wass*0.5*real_loss) 
            
             self.log("style loss",style_loss)
             self.log("mse loss",m_loss)
             self.log("g_loss",g_loss, sync_dist=True)
             self.log("wass loss",wass_loss)
+            self.log("real loss",real_loss)
             #g_loss += self.args.k_wass*label_loss
             g_loss = g_loss.float()
             tqdm_dict = {'g_loss': g_loss.detach()}
@@ -295,7 +296,7 @@ class WaeGAN(LightningModule):
             #self.log("enc loss",enc_loss) 
             #enc_loss = self.args.k_wass*enc_loss   
 
-            genenc_loss = (self.args.k_wass*(real_loss + fake_loss)/4.0 + self.args.k_wass*label_loss) 
+            genenc_loss = (self.args.k_wass*(real_loss + fake_loss)/4.0)# + self.args.k_wass*label_loss) 
             self.log("genenc loss",genenc_loss) 
 
             
