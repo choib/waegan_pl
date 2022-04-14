@@ -659,7 +659,7 @@ class Print(nn.Module):
 class MultiDiscriminator(nn.Module):
     def __init__(self, args):
         super(MultiDiscriminator, self).__init__()
-        self.normalize = True#args.normalize
+        self.normalize = False#args.normalize
         self.disc_channel = args.disc_channel
         self.relu_act = True#args.relu_act
         self.disc_kernel = args.disc_kernel
