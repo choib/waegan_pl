@@ -542,7 +542,7 @@ class ResNetUNetDecoder(nn.Module):
             )
         
         self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
-        self.reduce = nn.Sequential(nn.Conv2d(512+32, 512, 3, stride=1, padding=1))
+        self.reduce = nn.Sequential(nn.Conv2d(512+512, 512, 3, stride=1, padding=1))
         self.label_emb = nn.Embedding(self.n_classes,self.n_z)
 
     def forward(self, dd, noise=None, label=None):
