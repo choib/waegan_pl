@@ -541,9 +541,10 @@ class ResNetUNetDecoder(nn.Module):
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
         
-        self.lin = nn.Sequential(nn.Linear(self.n_classes, 32 * 4*6))
+        self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
         self.reduce = nn.Sequential(nn.Conv2d(512+32, 512, 3, stride=1, padding=1))
         self.label_emb = nn.Embedding(self.n_classes,self.n_z)
+
     def forward(self, dd, noise=None, label=None):
         d1,d2,d3,d4,d5,d6,l7,l8 = dd[0],dd[1],dd[2],dd[3],dd[4],dd[5],dd[6],dd[7]
         #h = self.img_height
@@ -577,13 +578,6 @@ class ResNetUNetDecoder(nn.Module):
         # v5 = self.up5(v4, self.res5(d2))
         # v6 = self.up6(v5, self.res6(d1))
 
-        v1 = self.up1(d7, (d6))
-        v2 = self.up2(v1, (d5))
-        v3 = self.up3(v2, (d4))
-        v4 = self.up4(v3, (d3))
-        v5 = self.up5(v4, (d2))
-        v6 = self.up6(v5, (d1))
-
         if nested:
             u1 = self.up1(d7, self.res1(d6))
             u2_1 = self.up1(d6, self.res2(d5))
@@ -607,6 +601,13 @@ class ResNetUNetDecoder(nn.Module):
             u6_5 = self.up6_5(u5_4, self.res6_4(u6_4))
             u6 = self.up6(u5, self.res6_5(u6_5))   
         elif attention:
+            v1 = self.up1(d7, (d6))
+            v2 = self.up2(v1, (d5))
+            v3 = self.up3(v2, (d4))
+            v4 = self.up4(v3, (d3))
+            v5 = self.up5(v4, (d2))
+            v6 = self.up6(v5, (d1))
+
             if self.lateral==True:
                 a1 = self.att1((v1), self.res1(d6))#a1 = self.att1((d6), self.res1(d6))
                 u1 = self.up1(d7, self.res1(a1))
@@ -646,7 +647,7 @@ class ResNetUNetDecoder(nn.Module):
         #z0 = gram_matrix(d7)
         #z1 = gram_matrix(d6)
         #z2 = gram_matrix(d5)
-        z0 = self.final(v6)
+        z0 = self.final(v6) if attention else self.final(u6) 
         fout = self.final(u6)
         #z0 = z.view(z.size(0),1,z.size(1),-1)
         #return self.final(u6), z0, eout, l6
