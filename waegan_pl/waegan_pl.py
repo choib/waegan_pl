@@ -227,11 +227,11 @@ class WaeGAN(LightningModule):
             # _, encoded, _, _ = self.generator_dec(downstream)
             
             m_loss = self.mse_loss(real_B, generated) 
-            e_loss = self.mse_loss(real_A, encoded)
+            e_loss = self.mse_loss(real_B, encoded)
 
             real_aux, real_adv = e1_, e2_
-            #labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes)
-            real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, labels)#_onehot)
+            labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes)
+            real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, labels_onehot)
 
             if self.args.descending:
                 s_r = (1-self.current_epoch/self.args.train_max)*self.args.style_ratio
@@ -244,13 +244,13 @@ class WaeGAN(LightningModule):
            
             h_loss = self.args.k_wass*( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )#
             wass_loss = -torch.mean(h_loss)
-            g_loss = (style_loss + wass_loss + e_loss + self.args.k_wass*0.5*real_loss) 
+            g_loss = (style_loss + wass_loss + e_loss + 0.5*real_loss) 
            
             self.log("style loss",style_loss)
             self.log("mse loss",m_loss)
             self.log("g_loss",g_loss, sync_dist=True)
             self.log("wass loss",wass_loss)
-            self.log("real loss",real_loss)
+            
             #g_loss += self.args.k_wass*label_loss
             g_loss = g_loss.float()
             tqdm_dict = {'g_loss': g_loss.detach()}
@@ -273,30 +273,31 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A)
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            _, encoded, _, _ = self.generator_dec(downstream)#,z,labels)
-            downstream = self.generator_enc(encoded)
+            #_, encoded, _, _ = self.generator_dec(downstream)#,z,labels)
+            downstream = self.generator_enc(aug_A)
             z1_ = downstream[-2]
             z2_ = downstream[-1]
            
             real_aux, real_adv = e1_, e2_
-            #labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes)
-            real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, gen_labels)#_onehot)
+            gen_labels_onehot= torch.nn.functional.one_hot( gen_labels, num_classes=self.n_classes)
+            real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, gen_labels_onehot)
            
             fake_aux, fake_adv = z1_, z2_
             #gen_labels_onehot= torch.nn.functional.one_hot(gen_labels, num_classes=self.n_classes)
-            fake_loss = self.adv_loss(fake_adv,fake) + self.aux_loss(fake_aux, gen_labels)#_onehot)
+            fake_loss = self.adv_loss(fake_adv,fake) + self.aux_loss(fake_aux, gen_labels_onehot)
             
             self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
             match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
             label_loss = self.mse_loss(z1_,e1_)
             self.log("matching",match.mean().item())
             self.log("label loss",label_loss)    
-
+            self.log("real loss",real_loss)
+            self.log("fake loss",fake_loss)
             #enc_loss =(self.mse_loss(e1_ , z1_)) 
             #self.log("enc loss",enc_loss) 
             #enc_loss = self.args.k_wass*enc_loss   
 
-            genenc_loss = (self.args.k_wass*(real_loss + fake_loss)/4.0)# + self.args.k_wass*label_loss) 
+            genenc_loss = ((real_loss + fake_loss)/4.0 + self.args.k_wass*label_loss) 
             self.log("genenc loss",genenc_loss) 
 
             
@@ -319,7 +320,7 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A.detach())
             #e1_ = downstream[-2]
             #e2_ = downstream[-1]
-            generated, _, _, _ = self.generator_dec(downstream)
+            generated, _, _, _ = self.generator_dec(downstream, z, labels)
             
             
             f_loss = self.args.k_wass*self.discriminator_unet(real_B)
@@ -358,9 +359,9 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A.detach())
             #e1_ = downstream[-2]
             #e2_ = downstream[-1]
-            _, encoded, _, _ = self.generator_dec(downstream)
+            _, encoded, _, _ = self.generator_dec(downstream, z, labels)
             
-            fv_loss = self.args.k_wass*self.discriminator_vnet(real_A)
+            fv_loss = self.args.k_wass*self.discriminator_vnet(real_B)
             hv_loss = self.args.k_wass*self.discriminator_vnet(encoded)
             dv_loss = (torch.mean(fv_loss) - torch.mean(hv_loss))
             
@@ -370,7 +371,7 @@ class WaeGAN(LightningModule):
                 for p in self.discriminator_vnet.parameters():
                     p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             else:
-                gradient_penalty = self.compute_gradient_penalty_v(real_A.data, encoded.data)
+                gradient_penalty = self.compute_gradient_penalty_v(real_B.data, encoded.data)
                 dv_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
             
             dv_loss = -dv_loss
@@ -404,13 +405,13 @@ class WaeGAN(LightningModule):
         #b2 = self.b2
         opt_gd = torch.optim.Adam(self.generator_dec.parameters(), lr=lr)#, betas=(b1, b2))
         opt_ge = torch.optim.Adam(self.generator_enc.parameters(), lr=lr)#, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator_unet.parameters(), lr=lr)#, betas=(b1, b2))
+        opt_du = torch.optim.Adam(self.discriminator_unet.parameters(), lr=lr)#, betas=(b1, b2))
         opt_dv = torch.optim.Adam(self.discriminator_vnet.parameters(), lr=lr)#, betas=(b1, b2))
         
         return (
             {'optimizer': opt_gd, 'frequency': 1},
             {'optimizer': opt_ge, 'frequency': self.n_critic},
-            {'optimizer': opt_d, 'frequency': self.n_critic},
+            {'optimizer': opt_du, 'frequency': self.n_critic},
             {'optimizer': opt_dv, 'frequency': self.n_critic}
         )
 

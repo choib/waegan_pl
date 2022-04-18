@@ -47,10 +47,10 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
             noisy = aug_A
             
         fake_B, latent_img, _, validity   = generator_dec(generator_enc(real_A))
-        sum_val += validity 
+        sum_val += validity.item() 
         real_B = img_B.view(1, *img_B.shape)
         real_B = Variable(real_B.type(Tensor))
-        sum_err += criterion(fake_B, real_B)
+        sum_err += criterion(fake_B, real_B).item()
 
         overlap = real_A/2 + fake_B/2
         fake_B = torch.cat([x for x in fake_B.data.cpu()], -1)
@@ -72,8 +72,8 @@ def sample_images(batches_done, data_loader, args, generator_enc, generator_dec,
         no_sample += 1
         del real_A, real_B, latent_img, fake_B, noisy
         torch.cuda.empty_cache()
-    test_loss = sum_err.item()/no_sample
-    test_val = sum_val.item()/no_sample
+    test_loss = sum_err/no_sample
+    test_val = sum_val/no_sample
     str = "\tEpoch: {} Test: {:<10.6e} Validity:{:<10.6e}".format(batches_done,test_loss, test_val)
     #sys.stdout.write(str)
     logging.info(str)

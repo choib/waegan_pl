@@ -39,14 +39,14 @@ class LabelSmoothingCrossEntropy(nn.Module):
         self.confidence = 1. - smoothing
 
     def forward(self, x, target):
-        # target = target.float() * (self.confidence) + 0.5 * self.smoothing
-        # return F.mse_loss(x, target.type_as(x))
-        logprobs = torch.nn.functional.log_softmax(x, dim=-1)
-        nll_loss = -logprobs.gather(dim=-1, index=target.unsqueeze(1))
-        nll_loss = nll_loss.squeeze(1)
-        smooth_loss = -logprobs.mean(dim=-1)
-        loss = self.confidence * nll_loss + self.smoothing * smooth_loss
-        return loss.mean()
+        target = target.float() * (self.confidence) + 0.5 * self.smoothing
+        return F.mse_loss(x, target.type_as(x))
+        # logprobs = torch.nn.functional.log_softmax(x, dim=-1)
+        # nll_loss = -logprobs.gather(dim=-1, index=target.unsqueeze(1))
+        # nll_loss = nll_loss.squeeze(1)
+        # smooth_loss = -logprobs.mean(dim=-1)
+        # loss = self.confidence * nll_loss + self.smoothing * smooth_loss
+        # return loss.mean()
 
 class LabelSmoothing(nn.Module):
     """NLL loss with label smoothing.
@@ -409,8 +409,8 @@ class ResNetUNetEncoder(nn.Module):
         
         #d7 = self.down7(d6)
 
+        # downstream = [l1,l2,l3,l4,l5,l6,l7,l8]
         downstream = [d1,d2,d3,d4,d5,d6,l7,l8]
-       
         return downstream
 
 class ResNetUNetDecoder(nn.Module):
@@ -541,8 +541,9 @@ class ResNetUNetDecoder(nn.Module):
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
         
-        self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
-        self.reduce = nn.Sequential(nn.Conv2d(512+512, 512, 3, stride=1, padding=1))
+        self.lin = nn.Sequential(nn.Linear(self.n_classes, 32 * 4*6))
+        self.reduce = nn.Sequential(nn.Conv2d(512+32, 512, 3, stride=1, padding=1),nn.InstanceNorm2d(512, affine=True),nn.LeakyReLU(0.2,inplace=True))#
+        #self.reduce = nn.Sequential(nn.Linear(1024*4*6, 512*4*6))
         self.label_emb = nn.Embedding(self.n_classes,self.n_z)
 
     def forward(self, dd, noise=None, label=None):
@@ -561,11 +562,13 @@ class ResNetUNetDecoder(nn.Module):
             el = self.label_emb(label)
             x = torch.mul(el, noise)
             #print("label:",label,x)
+        din = self.down7(d6)
         xx = self.lin(x)
         xx = xx.view(d6.shape[0],-1,4,6)
-        d6 = torch.cat((d6,xx),1)
-        d6 = self.reduce(d6)
-        d7 = self.down7(d6)
+        dd = torch.cat((d6,xx),1)
+        dd = self.reduce(dd)
+        #dd = dd.view(d6.shape[0],-1,4,6)
+        d7 = self.down7(dd)
         #self.print(d6)
 
         nested = self.nested
@@ -601,7 +604,7 @@ class ResNetUNetDecoder(nn.Module):
             u6_5 = self.up6_5(u5_4, self.res6_4(u6_4))
             u6 = self.up6(u5, self.res6_5(u6_5))   
         elif attention:
-            v1 = self.up1(d7, (d6))
+            v1 = self.up1(din, (d6))
             v2 = self.up2(v1, (d5))
             v3 = self.up3(v2, (d4))
             v4 = self.up4(v3, (d3))
