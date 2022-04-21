@@ -22,6 +22,7 @@ class ImageDataset(Dataset):
         self.transform = transforms.Compose(
             [
                 transforms.Resize(input_shape[-2:], Image.BICUBIC),
+                #transforms.CenterCrop(256),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]

@@ -15,7 +15,7 @@ class Options():
         parser.add_argument("--lr", dest="lr", default=0.0002, type=float, help="learning rate for Adam optimizer")
         parser.add_argument("--epochs",dest="epochs", default= 101, type= int, help="how many epochs to run for")
         parser.add_argument("--batch_size", dest="batch_size", default= 32, type= int, help= "batch size for dataset")
-        parser.add_argument("--test_batch_size", dest="test_batch_size", default= 16, type= int, help= "batch size for test dataset")
+        parser.add_argument("--test_batch_size", dest="test_batch_size", default= 8, type= int, help= "batch size for test dataset")
         parser.add_argument("--train_max", dest="train_max", default=300, type= int, help="maximun number of batches for training")
         parser.add_argument("--validate", dest="train", action='store_false', help="flag not to train networks and load networks from saved weights" )
         parser.add_argument("--dataset", dest="dataset", default="SNUH-EGSL-UCUK", type=str, help="name of dataset")
@@ -52,8 +52,9 @@ class Options():
         parser.add_argument("--dataroot", dest="dataroot", default='../../data', type=str, help="root directory of data files")
         parser.add_argument("--ckpt_dir", dest="ckpt_dir", default='./ckpt', type=str, help="root directory of ckpt files")
         parser.add_argument("--ckpt_name", dest="ckpt_name", default='bestmodel.ckpt', type=str, help="name of ckpt files")
-        parser.add_argument("--resnet50", dest="resnet50", action='store_true', help="switch to resnet101 encoder")
+        parser.add_argument("--resnet50", dest="resnet50", action='store_false', help="switch to resnet101 encoder")
         parser.add_argument("--fcone", dest="fcone", action='store_true', help="switch to fc layer configuration encoder")
+        parser.add_argument("--center", dest="center", action='store_true', help="switch to center crop")
      
         return parser
     

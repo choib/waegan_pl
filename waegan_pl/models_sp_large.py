@@ -192,7 +192,7 @@ class nResNet(nn.Module):
 
 
 class UNetDown(nn.Module):
-    def __init__(self, in_size, out_size, normalize=False, dropout=0.0, swish_act=False, relu_act=False, style=False):
+    def __init__(self, in_size, out_size, normalize=True, dropout=0.0, swish_act=False, relu_act=True, style=False):
         super(UNetDown, self).__init__()
         layers = [nn.Conv2d(in_size, out_size, 3, stride=2, padding=1, bias=False)]
         if style:
@@ -220,7 +220,8 @@ class UNetDown(nn.Module):
                 if swish_act:
                     layers.append(Swish())
                 else:
-                    layers.append(nn.LeakyReLU(0.2,inplace=True))    
+                    #layers.append(nn.LeakyReLU(0.2,inplace=True))
+                    layers.append(nn.ReLU(inplace=True))       
         #else:
         #    
         # if relu_act:
@@ -347,25 +348,31 @@ class ResNetUNetEncoder(nn.Module):
         #else:
         self.down1 = UNetDown(channels, 64, normalize=False)  
         self.down2 = UNetDown(64 + 64, 128)
-       
+        self.down60 = UNetDown(2048, 2048)
+
         if self.resnet50:
             self.down3 = UNetDown(128 + 256, 256)
             self.down4 = UNetDown(256 + 512, 512)
             self.down5 = UNetDown(512 + 1024, 512)
             self.down6 = UNetDown(512 + 2048, 512)
+            
+            # 64, 64, 256, 512, 1024, 2048
+            # d1, d2,  d3,  d4,   d5,   d6
         else:
             self.down3 = UNetDown(128 + 64, 256)
             self.down4 = UNetDown(256 + 128, 512)
             self.down5 = UNetDown(512 + 256, 512)
             self.down6 = UNetDown(512 + 512, 512)
             
-        self.down7 = UNetDown(512, 512)
+        #self.down7 = UNetDown(512, 512)
         
         if self.resnet50:
-            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(2048*8*12, 512))#, nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
+            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(2048*8*12, 2048), nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
+            self.fc = nn.Sequential(nn.Linear(2048, self.n_classes))
         else:
-            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512))#, nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
-        self.fc = nn.Sequential(nn.Linear(512, self.n_classes))#, nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
+            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512*8*12, 512), nn.LeakyReLU(0.2,inplace=True))
+            self.fc = nn.Sequential(nn.Linear(512, self.n_classes))#2048 for resnet101 512 for else
+        #, nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
         self.critic = nn.Linear(self.n_classes, 1) 
         self.fc1 = nn.Linear(512, 1) 
         
@@ -397,6 +404,7 @@ class ResNetUNetEncoder(nn.Module):
 
         # self.print(l5)
         l6 = self.pooling(l5)
+       
         # self.print(l6)
         l7 = self.fc(l6)
       
@@ -405,12 +413,15 @@ class ResNetUNetEncoder(nn.Module):
         else:
             l8 = self.critic(l7)
         mz = torch.cat((l5,d5),1)
-        d6 = self.down6(mz)
         
+        
+        l60 = self.down60(l5)
+    
+        # d6 = self.down6(mz)
         #d7 = self.down7(d6)
 
-        # downstream = [l1,l2,l3,l4,l5,l6,l7,l8]
-        downstream = [d1,d2,d3,d4,d5,d6,l7,l8]
+        downstream = [l1,l2,l3,l4,l5,l60,l7,l8]
+        #downstream = [d1,d2,d3,d4,d5,d6,l7,l8]
         return downstream
 
 class ResNetUNetDecoder(nn.Module):
@@ -429,51 +440,79 @@ class ResNetUNetDecoder(nn.Module):
         self.nested = args.nested
         self.lateral = args.lateral
         self.n_z = args.n_z
+        self.resnet50 = args.resnet50
         channels = self.n_channel
         no_resblk = args.n_resblk
         self.n_classes = args.n_classes
         self.print = Print()
        
-        self.down7 = UNetDown(512, 512,)
+        # 
+        if self.resnet50:
+            self.down7 = UNetDown(2048,2048)
+        else:
+            self.down7 = UNetDown(512, 512)
         
+        # 64, 64, 256, 512, 1024, 2048, 2048
+        # d0, d1,  d2,  d3,   d4,   d5,  d6
+
         if self.attention:
             if self.lateral==True:
-                self.up1 = UNetUp(512, 512)
-                self.res1 = nResNet(no_resblk * 1, 512)
-                self.att1 = AttentionBlock(1024,512,512,lat=True)
-                self.up2 = UNetUp(1024, 512)
-                self.res2 = nResNet(no_resblk * 1, 512)
-                self.att2 = AttentionBlock(1024, 512, 512,lat=True)
-                self.up3 = UNetUp(1024, 256)
-                self.res3 = nResNet(no_resblk * 1, 512)
-                self.att3 = AttentionBlock(512+256, 512, 512, lat=True)
-                self.up4 = UNetUp(768, 128)
-                self.res4 = nResNet(no_resblk * 1, 256)
-                self.att4 = AttentionBlock(256+128,256,256, lat=True)
-                self.up5 = UNetUp(384, 64)
-                self.res5 = nResNet(no_resblk * 1, 128) 
-                self.att5 = AttentionBlock(128+64,128,128, lat=True)
-                self.up6 = UNetUp(192, 64)
-                self.res6 = nResNet(no_resblk * 1, 64) 
-                self.att6 = AttentionBlock(64+64,64,64, lat=True)
+                if self.resnet50:
+                    self.up1 = UNetUp(2048, 2048)
+                    self.res1 = nResNet(no_resblk * 1, 2048)
+                    self.att1 = AttentionBlock(4096,2048,2048,lat=True)
+                    self.up2 = UNetUp(4096, 2048)
+                    self.res2 = nResNet(no_resblk * 1, 2048)
+                    self.att2 = AttentionBlock(4096, 2048, 2048,lat=True)
+                    self.up3 = UNetUp(4096, 1024)
+                    self.res3 = nResNet(no_resblk * 1, 1024)
+                    self.att3 = AttentionBlock(2048, 1024, 2048, lat=True)
+                    self.up4 = UNetUp(2048, 512)
+                    self.res4 = nResNet(no_resblk * 1, 512)
+                    self.att4 = AttentionBlock(1024,512,512, lat=True)
+                    self.up5 = UNetUp(1024, 256)
+                    self.res5 = nResNet(no_resblk * 1, 256) 
+                    self.att5 = AttentionBlock(512,256,256, lat=True)
+                    self.up6 = UNetUp(512, 64)
+                    self.res6 = nResNet(no_resblk * 1, 64) 
+                    self.att6 = AttentionBlock(128,64,64, lat=True)
+                else:
+                    self.up1 = UNetUp(512, 512)
+                    self.res1 = nResNet(no_resblk * 8, 512)
+                    self.att1 = AttentionBlock(1024,512,512,lat=True)
+                    self.up2 = UNetUp(1024, 512)
+                    self.res2 = nResNet(no_resblk * 8, 512)
+                    self.att2 = AttentionBlock(1024, 512, 512,lat=True)
+                    self.up3 = UNetUp(1024, 256)
+                    self.res3 = nResNet(no_resblk * 8, 512)
+                    self.att3 = AttentionBlock(512+256, 512, 512, lat=True)
+                    self.up4 = UNetUp(768, 128)
+                    self.res4 = nResNet(no_resblk * 4, 256)
+                    self.att4 = AttentionBlock(256+128,256,256, lat=True)
+                    self.up5 = UNetUp(384, 64)
+                    self.res5 = nResNet(no_resblk * 2, 128) 
+                    self.att5 = AttentionBlock(128+64,128,128, lat=True)
+                    self.up6 = UNetUp(192, 64)
+                    self.res6 = nResNet(no_resblk * 1, 64) 
+                    self.att6 = AttentionBlock(64+64,64,64, lat=True)
             else:    
                 self.up1 = UNetUp(512, 512)
-                self.res1 = nResNet(no_resblk * 1, 512)
+                self.res1 = nResNet(no_resblk * 8, 512)
                 self.att1 = AttentionBlock(512,512,512)
                 self.up2 = UNetUp(1024, 512)
-                self.res2 = nResNet(no_resblk * 1, 512)
+                self.res2 = nResNet(no_resblk * 8, 512)
                 #self.res21 = nResNet(no_resblk * 8, 512)
                 self.att2 = AttentionBlock(512, 1024 ,512)
                 self.up3 = UNetUp(1024, 256)
-                self.res3 = nResNet(no_resblk * 1, 512)
+                self.res3 = nResNet(no_resblk * 8, 512)
                 #self.res31 = nResNet(no_resblk * 8, 512)
                 self.att3 = AttentionBlock(512, 1024, 512)
                 self.up4 = UNetUp(768, 128)                
-                self.res4 = nResNet(no_resblk * 1, 256)
+                self.res4 = nResNet(no_resblk * 4, 256)
                 #self.res41 = nResNet(no_resblk * 4, 256)
                 self.att4 = AttentionBlock(256,768,256)
                 self.up5 = UNetUp(384, 64)
-                self.res5 = nResNet(no_resblk * 1, 128) 
+                self.res5 = nResNet(no_resblk * 2, 128) 
                 #self.res51 = nResNet(no_resblk * 2, 128) 
                 self.att5 = AttentionBlock(128,384,128)
                 self.up6 = UNetUp(192, 64)
@@ -482,15 +521,15 @@ class ResNetUNetDecoder(nn.Module):
                 self.att6 = AttentionBlock(64,192,64)
         else: 
             self.up1 = UNetUp(512, 512)
-            self.res1 = nResNet(no_resblk * 1, 512)
+            self.res1 = nResNet(no_resblk * 8, 512)
             self.up2 = UNetUp(1024, 512)
-            self.res2 = nResNet(no_resblk * 1, 512)
+            self.res2 = nResNet(no_resblk * 8, 512)
             self.up3 = UNetUp(1024, 256)
-            self.res3 = nResNet(no_resblk * 1, 512)
+            self.res3 = nResNet(no_resblk * 8, 512)
             self.up4 = UNetUp(512 + 256, 128)
-            self.res4 = nResNet(no_resblk * 1, 256)
+            self.res4 = nResNet(no_resblk * 4, 256)
             self.up5 = UNetUp(256 + 128, 64)
-            self.res5 = nResNet(no_resblk * 1, 128) 
+            self.res5 = nResNet(no_resblk * 2, 128) 
             self.up6 = UNetUp(128 + 64, 64)
             self.res6 = nResNet(no_resblk * 1, 64) 
 
@@ -499,8 +538,11 @@ class ResNetUNetDecoder(nn.Module):
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
         
-        self.lin = nn.Sequential(nn.Linear(self.n_classes, 512 * 4*6))
-        self.reduce = nn.Sequential(nn.Conv2d(512+512, 512, kernel_size=3,stride=1,padding=1,bias=True),nn.InstanceNorm2d(512))
+        self.lin = nn.Sequential(nn.Linear(self.n_classes, 32 * 4*6))
+        if self.resnet50:
+            self.reduce = nn.Sequential(nn.Conv2d(2048+32, 2048, 3, stride=1, padding=1),nn.InstanceNorm2d(2048, affine=True),nn.LeakyReLU(0.2,inplace=True))
+        else:
+            self.reduce = nn.Sequential(nn.Conv2d(512+32, 512, 3, stride=1, padding=1),nn.InstanceNorm2d(512, affine=True),nn.LeakyReLU(0.2,inplace=True))#
         #self.reduce = nn.Sequential(nn.Linear(1024*4*6, 512*4*6))
         self.label_emb = nn.Embedding(self.n_classes,self.n_z)
 
@@ -523,14 +565,13 @@ class ResNetUNetDecoder(nn.Module):
         din = self.down7(d6)
         xx = self.lin(x)
         xx = xx.view(d6.shape[0],-1,4,6)
-        #dd = torch.cat((d6,xx),1)
-        #dd = self.reduce(dd)
+        dd = torch.cat((d6,xx),1)
+        dd = self.reduce(dd)
         #dd = dd.view(d6.shape[0],-1,4,6)
-        dd = xx
-        d7 = self.down7(d6)#dd)
+        d7 = self.down7(dd)
         #self.print(d6)
 
-       
+        nested = self.nested
         attention = self.attention
 
         # v1 = self.up1(d7, self.res1(d6))
@@ -539,8 +580,7 @@ class ResNetUNetDecoder(nn.Module):
         # v4 = self.up4(v3, self.res4(d3))
         # v5 = self.up5(v4, self.res5(d2))
         # v6 = self.up6(v5, self.res6(d1))
-
-        
+ 
         if attention:
             v1 = self.up1(din, (d6))
             v2 = self.up2(v1, (d5))
