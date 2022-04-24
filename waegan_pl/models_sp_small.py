@@ -192,7 +192,7 @@ class nResNet(nn.Module):
 
 
 class UNetDown(nn.Module):
-    def __init__(self, in_size, out_size, normalize=True, dropout=0.0, swish_act=False, relu_act=True, style=False):
+    def __init__(self, in_size, out_size, normalize=False, dropout=0.0, swish_act=False, relu_act=True, style=False):
         super(UNetDown, self).__init__()
         layers = [nn.Conv2d(in_size, out_size, 3, stride=2, padding=1, bias=False)]
         if style:
@@ -358,7 +358,7 @@ class ResNetUNetEncoder(nn.Module):
         self.down2 = UNetDown(64, 128)
        
         if self.resnet50:
-            self.down3 = UNetDown(128+256, 256)
+            self.down3 = UNetDown(128, 256)
             self.down4 = UNetDown(256, 512)
             self.down5 = UNetDown(512, 512)
             self.down6 = UNetDown(512, 512)
@@ -397,7 +397,7 @@ class ResNetUNetEncoder(nn.Module):
         d2 = self.down2(d1)#mz)
 
         
-        mz = torch.cat((l2,d2),1)
+        mz = d2#torch.cat((l2,d2),1)
         l3 = self.layer3(l2)
         d3 = self.down3(mz)
 
@@ -449,14 +449,15 @@ class ResNetUNetDecoder(nn.Module):
         self.center = args.center
         self.print = Print()
        
-        self.down6 = UNetDown(512, 512)
-        
+        self.down7 = UNetDown(512, 512)
+        self.down70 = UNetDown(640,512)
+
         if self.attention:
             if self.lateral==True:
                 self.up1 = UNetUp(512, 512)
                 self.res1 = nResNet(no_resblk * 8, 512)
                 self.att1 = AttentionBlock(1024,512,512,lat=True)
-                self.up2 = UNetUp(512, 512)
+                self.up2 = UNetUp(1024, 512)
                 self.res2 = nResNet(no_resblk * 4, 512)
                 self.att2 = AttentionBlock(1024, 512, 512,lat=True)
                 self.up3 = UNetUp(1024, 256)
@@ -514,9 +515,9 @@ class ResNetUNetDecoder(nn.Module):
                 nn.Upsample(scale_factor=2), nn.Conv2d(128, channels, 3, stride=1, padding=1), nn.Tanh()
             )
         if self.center:
-            self.init_size = 8*8
+            self.init_size = 4*4
         else:
-            self.init_size = 8*12
+            self.init_size = 4*6
         self.lin = nn.Sequential(nn.Linear(self.n_classes, 128 * self.init_size)) #4*6 for d6
         self.reduce = nn.Sequential(nn.Conv2d(640, 512, kernel_size=3,stride=1,padding=1),nn.InstanceNorm2d(512))
         #self.reduce = nn.Sequential(nn.Linear(1024*4*6, 512*4*6))
@@ -533,39 +534,39 @@ class ResNetUNetDecoder(nn.Module):
         # self.print(d2)
         # self.print(d1)
         if noise is None:
-            noise = torch.normal(0, 1,size=(l7.shape[0],self.n_z)).cuda()
+            noise = torch.rand(l7.shape[0],self.n_classes).cuda()
         if label is None:
             #label = torch.argmax(l7)
-            x = torch.mul(l7, noise)
+            x = l7#torch.mul(l7, noise)
             #print("no label:",x)
         else:
-            #el= torch.nn.functional.one_hot(label, num_classes=self.n_classes)
-            el = self.label_emb(label)
-            x = torch.mul(el, noise)
+            el= torch.nn.functional.one_hot(label, num_classes=self.n_classes).float()
+            el += noise
+            x = el#torch.mul(el, noise)
             #print("label:",label,x)
-        #din = self.down7(d6)
-        din = d6#self.down6(d5)
+        din = self.down7(d6)
+        #din = d6#self.down6(d5)
         #self.print(d6)
         #self.print(d5)
-        # xx = self.lin(x)
-        # if self.center:
-        #     xx = xx.view(d5.shape[0],-1,8,8)
-        # else:
-        #     xx = xx.view(d5.shape[0],-1,8,12) #4x6 for d6
-        # dd = torch.cat((d5,xx),1)
-        # dd = self.reduce(dd)
-        # #dd = dd.view(d6.shape[0],-1,4,6)
-        # #dd = xx
-        # #d7 = self.down7(dd)
-        # d6 = self.down6(dd)
+        xx = self.lin(x)
+        if self.center:
+            xx = xx.view(d6.shape[0],-1,4,4)
+        else:
+            xx = xx.view(d6.shape[0],-1,4,6) #4x6 for d6
+        dd = torch.cat((d6,xx),1)
+        #dd = self.reduce(dd)
+        #dd = dd.view(d6.shape[0],-1,4,6)
+        #dd = d6
+        d7 = self.down70(dd)
+        #d6 = self.down6(dd)
         #self.print(d6)
 
        
         attention = self.attention
         
         if attention:
-            #v1 = self.up1(din, (d6))
-            v2 = self.up2(din, (d5))
+            v1 = self.up1(din, (d6))
+            v2 = self.up2(v1, (d5))
             v3 = self.up3(v2, (d4))
             #self.print(v3)
             v4 = self.up4(v3, (d3))
@@ -573,10 +574,10 @@ class ResNetUNetDecoder(nn.Module):
             v6 = self.up6(v5, (d1))
 
             if self.lateral==True:
-                #a1 = self.att1((v1), self.res1(d6))#a1 = self.att1((d6), self.res1(d6))
-                #u1 = self.up1(d7, self.res1(a1))
+                a1 = self.att1((v1), self.res1(d6))#a1 = self.att1((d6), self.res1(d6))
+                u1 = self.up1(d7, self.res1(a1))
                 a2 = self.att2((v2), self.res2(d5))#a2 = self.att2((d5), self.res2(d5))
-                u2 = self.up2( d6, self.res2(a2)) #u1
+                u2 = self.up2( u1, self.res2(a2)) #u1
                 a3 = self.att3((v3), self.res3(d4))#a3 = self.att3((d4), self.res3(d4))
                 u3 = self.up3(u2, self.res3(a3))
                 a4 = self.att4((v4), self.res4(d3))#a4 = self.att4((d3), self.res4(d3))
@@ -586,10 +587,10 @@ class ResNetUNetDecoder(nn.Module):
                 a6 = self.att6((v6), self.res6(d1))#a6 = self.att6((d1), self.res6(d1))
                 u6 = self.up6(u5, self.res6(a6))  
             else:
-                #a1 = self.att1(self.res1(d6), (d7))
-                #u1 = self.up1((d7), self.res1(a1))
+                a1 = self.att1(self.res1(d6), (d7))
+                u1 = self.up1((d7), self.res1(a1))
                 a2 = self.att2(self.res2(d5), (d6))#v1 ,a2 = self.att2(self.res2(d5), (u1))
-                u2 = self.up2((d6), self.res2(a2)) #u1
+                u2 = self.up2((u1), self.res2(a2)) #u1
                 a3 = self.att3(self.res3(d4), (v2))#a3 = self.att3(self.res3(d4), (u2))
                 u3 = self.up3((u2), self.res3(a3))
                 a4 = self.att4(self.res4(d3), (v3))#a4 = self.att4(self.res4(d3), (u3))
