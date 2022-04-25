@@ -86,11 +86,11 @@ class WaeGAN(LightningModule):
     def __init__(self, args):
         super().__init__()
         self.save_hyperparameters()
-        self.latent_dim = args.n_z
+        self.latent_dim = args.n_classes
         self.lr = args.lr
         self.n_critic = args.n_critic
         self.args = args
-        self.smth = 0.45#args.smth
+        #self.smth = 0.45#args.smth
         #self.automatic_optimization=False
         #self.b1 = b1
         #self.b2 = b2
@@ -217,43 +217,28 @@ class WaeGAN(LightningModule):
             frozen_params(self.generator_enc)
             free_params(self.generator_dec)
              
-            valid = Variable(Tensor(real_A.shape[0], 1).fill_(1.0), requires_grad=False)
-            #downstream = 
-            #e1_ = downstream[-2]
-            #e2_ = downstream[-1]
             generated, encoded, e1_, e2_ = self.generator_dec(self.generator_enc(real_A))#, z, labels)
-            # downstream = self.generator_enc(encoded)
-            # e2_ = downstream[-1]
-            # _, encoded, _, _ = self.generator_dec(downstream)
+           
             
             m_loss = self.mse_loss(real_B, generated) 
             e_loss = self.mse_loss(real_B, encoded)
-
-            # real_aux, real_adv = e1_, e2_
-            # labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes).float()
-            # labels_onehot += torch.rand(labels_onehot.size(),device=self.device)
-            # #labels_onehot = torch.nn.functional.embedding(labels, labels_onehot)
-            # real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, labels_onehot)
 
             if self.args.descending:
                 s_r = (1-self.current_epoch/self.args.train_max)*self.args.style_ratio
             else:
                 s_r = (self.current_epoch/self.args.train_max)*self.args.style_ratio
 
-            #style_loss = (s_r)*(1 - self.criterion(real_B, generated)) + (1-s_r)* m_loss
-            style_loss = m_loss
+            style_loss = (s_r)*(1 - self.criterion(real_B, generated)) + (1-s_r)* m_loss
            
             h_loss = self.args.k_wass*( self.discriminator_unet(generated) )
             wass_loss = -torch.mean(h_loss)
-            g_loss = (style_loss + wass_loss + e_loss)# + 0.5*real_loss) 
-           
+            g_loss = (style_loss + wass_loss + e_loss)
+
             self.log("style loss",style_loss)
             self.log("mse loss",m_loss)
             self.log("g_loss",g_loss, sync_dist=True)
             self.log("wass loss",wass_loss)
             
-            #opt1, opt2, _ = self.optimizers()
-            #g_loss += self.args.k_wass*label_loss
             g_loss = g_loss.float()
             tqdm_dict = {'g_loss': g_loss.detach()}
             output = OrderedDict({
@@ -261,8 +246,7 @@ class WaeGAN(LightningModule):
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
-            #opt1.step()
-            #opt2.step()
+           
             return output
 
         elif optimizer_idx == 1:
@@ -277,30 +261,26 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A)
             e1_ = downstream[-2]
             e2_ = downstream[-1]
-            _, encoded, _, _ = self.generator_dec(downstream)#,z,labels)
+            generated, encoded, _, _ = self.generator_dec(downstream)#,z,labels)
             downstream = self.generator_enc(aug_A)
             z1_ = downstream[-2]
             z2_ = downstream[-1]
            
             e_loss = self.mse_loss(real_B, encoded)
-            h_loss = self.args.k_wass*( self.discriminator_unet(encoded) )
+            m_loss = self.mse_loss(real_B, generated)
+            h_loss = self.args.k_wass*( self.discriminator_unet(generated) )
             wass_loss = -torch.mean(h_loss)
             real_aux, real_adv = e1_, e2_
             labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes).float()
-            #print(labels_onehot)
             labels_onehot += torch.rand(labels_onehot.size(),device=self.device)
-            #print(labels_onehot)
-            #labels_onehot = torch.nn.functional.embedding(labels, labels_onehot)
-            #print(labels_onehot)
-            #print(real_aux)
+           
             real_loss = self.adv_loss(real_adv,valid) + self.aux_loss(real_aux, labels_onehot)
            
             fake_aux, fake_adv = z1_, z2_
             gen_labels_onehot= torch.nn.functional.one_hot(gen_labels, num_classes=self.n_classes).float()
             gen_labels_onehot += torch.rand(labels_onehot.size(),device=self.device)
-            #print(labels_onehot)
-            #gen_labels_onehot = torch.nn.functional.embedding(gen_labels,gen_labels_onehot)
-            fake_loss = self.adv_loss(fake_adv,fake) #+ self.aux_loss(fake_aux, gen_labels_onehot)
+            
+            fake_loss = self.adv_loss(fake_adv,fake) + self.aux_loss(fake_aux, gen_labels_onehot)
             
             self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
             match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
@@ -309,11 +289,9 @@ class WaeGAN(LightningModule):
             self.log("label loss",label_loss)    
             self.log("real loss",real_loss)
             self.log("fake loss",fake_loss)
-            #enc_loss =(self.mse_loss(e1_ , z1_)) 
-            #self.log("enc loss",enc_loss) 
-            #enc_loss = self.args.k_wass*enc_loss   
+            
 
-            genenc_loss = (real_loss + fake_loss)/2.0 + e_loss + self.args.k_wass*(label_loss + wass_loss)
+            genenc_loss = (real_loss + fake_loss)/4.0 + e_loss + m_loss + self.args.k_wass*(label_loss + wass_loss)
             self.log("genenc loss",genenc_loss) 
 
             
@@ -426,7 +404,7 @@ class WaeGAN(LightningModule):
         
         return (
             {'optimizer': opt_gd, 'frequency': 1},
-            {'optimizer': opt_ge, 'frequency': 1},
+            {'optimizer': opt_ge, 'frequency': self.n_critic},
             {'optimizer': opt_du, 'frequency': self.n_critic},
             #{'optimizer': opt_dv, 'frequency': self.n_critic}
         )

@@ -10,13 +10,13 @@ class Options():
     def initialize(self, parser):
         
         parser.add_argument("--n_channel", dest="n_channel", default=3, type=int, help="channels in the input data")
-        parser.add_argument("--n_z", dest="n_z", default=32, type=int, help="number of dimensions in latent space")
-        parser.add_argument("--sigma", dest="sigma", default=0.25, type=float, help="variance of gaussian noise for encoder training")
+        parser.add_argument("--n_z", dest="n_z", default=512, type=int, help="number of dimensions in latent space (redundency)")
+        parser.add_argument("--sigma", dest="sigma", default=0.1, type=float, help="variance of gaussian noise for encoder training")
         parser.add_argument("--lr", dest="lr", default=0.0002, type=float, help="learning rate for Adam optimizer")
-        parser.add_argument("--epochs",dest="epochs", default= 101, type= int, help="how many epochs to run for")
+        parser.add_argument("--epochs",dest="epochs", default= 251, type= int, help="how many epochs to run for")
         parser.add_argument("--batch_size", dest="batch_size", default= 32, type= int, help= "batch size for dataset")
         parser.add_argument("--test_batch_size", dest="test_batch_size", default= 8, type= int, help= "batch size for test dataset")
-        parser.add_argument("--train_max", dest="train_max", default=300, type= int, help="maximun number of batches for training")
+        parser.add_argument("--train_max", dest="train_max", default=500, type= int, help="maximun number of batches for training")
         parser.add_argument("--validate", dest="train", action='store_false', help="flag not to train networks and load networks from saved weights" )
         parser.add_argument("--dataset", dest="dataset", default="SNUH-EGSL-UCUK", type=str, help="name of dataset")
         parser.add_argument("--img_width", dest="img_width", default=384, type=int, help="width of image in pixels")
@@ -47,13 +47,13 @@ class Options():
         parser.add_argument("--precision", dest="precision", default=16, type=int, help="Half or 32bit precision")
         parser.add_argument("--gpu", dest="gpu", default=1, type=int, help="no. of gpus to use")
         parser.add_argument("--n_class", dest="n_class", default=2, type=int, help="class id for validation")
-        parser.add_argument("--n_classes", dest="n_classes", default=32, type=int, help="class id for validation")
+        parser.add_argument("--n_classes", dest="n_classes", default=256, type=int, help="class id for validation")
         parser.add_argument("--last", dest="last", action='store_true', help="flag to use last checkpoint file")
         parser.add_argument("--dataroot", dest="dataroot", default='../../data', type=str, help="root directory of data files")
         parser.add_argument("--ckpt_dir", dest="ckpt_dir", default='./ckpt', type=str, help="root directory of ckpt files")
         parser.add_argument("--ckpt_name", dest="ckpt_name", default='bestmodel.ckpt', type=str, help="name of ckpt files")
         parser.add_argument("--resnet50", dest="resnet50", action='store_false', help="switch to resnet101 encoder")
-        parser.add_argument("--fcone", dest="fcone", action='store_true', help="switch to fc layer configuration encoder")
+        parser.add_argument("--fcone", dest="fcone", action='store_false', help="switch to fc layer configuration encoder")
         parser.add_argument("--center", dest="center", action='store_true', help="switch to center crop")
      
         return parser

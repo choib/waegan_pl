@@ -356,17 +356,28 @@ class ResNetUNetEncoder(nn.Module):
         #else:
         self.down1 = UNetDown(channels, 64, normalize=False)  
         self.down2 = UNetDown(64, 128)
-       
+        
         if self.resnet50:
-            self.down3 = UNetDown(128, 256)
-            self.down4 = UNetDown(256, 512)
-            self.down5 = UNetDown(512, 512)
-            self.down6 = UNetDown(512, 512)
+            self.down3 = UNetDown(128 + 256, 256)
+            self.down4 = UNetDown(256 + 512, 512)
+            self.down5 = UNetDown(512 + 1024, 512)
+            self.down6 = UNetDown(512 + 2048, 512)
         else:
-            self.down3 = UNetDown(128, 256)
-            self.down4 = UNetDown(256, 512)
-            self.down5 = UNetDown(512, 512)
-            self.down6 = UNetDown(512, 512)
+            self.down3 = UNetDown(128 + 64, 256)
+            self.down4 = UNetDown(256 + 128, 512)
+            self.down5 = UNetDown(512 + 256, 512)
+            self.down6 = UNetDown(512 + 512, 512)
+
+        # if self.resnet50:
+        #     self.down3 = UNetDown(128, 256)
+        #     self.down4 = UNetDown(256, 512)
+        #     self.down5 = UNetDown(512, 512)
+        #     self.down6 = UNetDown(512, 512)
+        # else:
+        #     self.down3 = UNetDown(128, 256)
+        #     self.down4 = UNetDown(256, 512)
+        #     self.down5 = UNetDown(512, 512)
+        #     self.down6 = UNetDown(512, 512)
             
         self.down7 = UNetDown(512, 512)
 
@@ -376,9 +387,9 @@ class ResNetUNetEncoder(nn.Module):
             self.init_size = 8*12
 
         if self.resnet50:
-            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(2048* self.init_size, 512))#, nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
+            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(2048* self.init_size, 512), nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
         else:
-            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512* self.init_size, 512))#, nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
+            self.pooling = nn.Sequential(nn.Flatten(), nn.Dropout(0.0),nn.Linear(512* self.init_size, 512), nn.LeakyReLU(0.2,inplace=True))#2048 for resnet101 512 for else
         self.fc = nn.Sequential(nn.Linear(512, self.n_classes))#, nn.LeakyReLU(0.2,inplace=True)) # resnet18: 256
         self.critic = nn.Linear(self.n_classes, 1) 
         self.fc1 = nn.Linear(512, 1) 
@@ -397,15 +408,15 @@ class ResNetUNetEncoder(nn.Module):
         d2 = self.down2(d1)#mz)
 
         
-        mz = d2#torch.cat((l2,d2),1)
+        mz = torch.cat((l2,d2),1)
         l3 = self.layer3(l2)
         d3 = self.down3(mz)
 
-        mz = d3#torch.cat((l3,d3),1)
+        mz = torch.cat((l3,d3),1)
         l4 = self.layer4(l3)
         d4 = self.down4(mz) #down4
 
-        mz = d4#torch.cat((l4,d4),1)
+        mz = torch.cat((l4,d4),1)
         l5 = self.layer5(l4)
         d5 = self.down5(mz) #down5
 
@@ -418,7 +429,7 @@ class ResNetUNetEncoder(nn.Module):
             l8 = self.fc1(l6)
         else:
             l8 = self.critic(l7)
-        mz = d5#torch.cat((l5,d5),1)
+        mz = torch.cat((l5,d5),1)
         d6 = self.down6(mz)
         
         #d7 = self.down7(d6)
@@ -442,7 +453,7 @@ class ResNetUNetDecoder(nn.Module):
         self.attention = args.attention
         self.nested = args.nested
         self.lateral = args.lateral
-        self.n_z = args.n_z
+        #self.n_z = args.n_z
         channels = self.n_channel
         no_resblk = args.n_resblk
         self.n_classes = args.n_classes
@@ -521,7 +532,7 @@ class ResNetUNetDecoder(nn.Module):
         self.lin = nn.Sequential(nn.Linear(self.n_classes, 128 * self.init_size)) #4*6 for d6
         self.reduce = nn.Sequential(nn.Conv2d(640, 512, kernel_size=3,stride=1,padding=1),nn.InstanceNorm2d(512))
         #self.reduce = nn.Sequential(nn.Linear(1024*4*6, 512*4*6))
-        self.label_emb = nn.Embedding(self.n_classes,self.n_z)
+        #self.label_emb = nn.Embedding(self.n_classes,self.n_z)
 
     def forward(self, dd, noise=None, label=None):
         d1,d2,d3,d4,d5,d6,l7,l8 = dd[0],dd[1],dd[2],dd[3],dd[4],dd[5],dd[6],dd[7]
