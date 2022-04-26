@@ -259,9 +259,9 @@ class WaeGAN(LightningModule):
             fake = Variable(Tensor(real_A.shape[0], 1).fill_(0.0), requires_grad=False)
 
             downstream = self.generator_enc(real_A)
-            e1_ = downstream[-2]
-            e2_ = downstream[-1]
-            generated, encoded, _, _ = self.generator_dec(downstream)#,z,labels)
+            # e1_ = downstream[-2]
+            # e2_ = downstream[-1]
+            generated, encoded, e1_, e2_ = self.generator_dec(downstream,z,labels)
             downstream = self.generator_enc(aug_A)
             z1_ = downstream[-2]
             z2_ = downstream[-1]
