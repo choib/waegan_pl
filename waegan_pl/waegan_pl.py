@@ -280,7 +280,7 @@ class WaeGAN(LightningModule):
             gen_labels_onehot= torch.nn.functional.one_hot(gen_labels, num_classes=self.n_classes).float()
             gen_labels_onehot += torch.rand(labels_onehot.size(),device=self.device)
             
-            fake_loss = self.adv_loss(fake_adv,fake) #+ self.aux_loss(fake_aux, gen_labels_onehot)
+            fake_loss = self.adv_loss(fake_adv,fake) + self.aux_loss(fake_aux, gen_labels_onehot)
             
             self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
             match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
