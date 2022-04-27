@@ -152,14 +152,14 @@ class AttentionBlock(nn.Module):
         return x*psi
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_features, relu_act=True, batch_norm=True, swish_act=False):
+    def __init__(self, in_features, relu_act=True, batch_norm=False, swish_act=False):
         super(ResidualBlock, self).__init__()
         layers = [nn.ReflectionPad2d(1)]
         layers.append(nn.Conv2d(in_features, in_features, 3))
         if batch_norm:
-            layers.append(nn.BatchNorm2d(in_features, 0.2, affine=False))
+            layers.append(nn.BatchNorm2d(in_features, 0.8, affine=True))
         else:
-            layers.append(nn.InstanceNorm2d(in_features, affine=False))
+            layers.append(nn.InstanceNorm2d(in_features, affine=True))
         if relu_act:
             if swish_act:
                 layers.append(Swish())
@@ -169,9 +169,9 @@ class ResidualBlock(nn.Module):
         layers.append(nn.ReflectionPad2d(1))
         layers.append(nn.Conv2d(in_features, in_features, 3))
         if batch_norm:
-            layers.append(nn.BatchNorm2d(in_features, 0.2, affine=False))
+            layers.append(nn.BatchNorm2d(in_features, 0.8, affine=True))
         else:
-            layers.append(nn.InstanceNorm2d(in_features, affine=False))
+            layers.append(nn.InstanceNorm2d(in_features, affine=True))
         if relu_act:
             if swish_act:
                 layers.append(Swish())

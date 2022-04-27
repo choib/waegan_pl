@@ -111,7 +111,7 @@ class WaeGAN(LightningModule):
         self.generator_enc = ResNetUNetEncoder(args)
         self.generator_dec = ResNetUNetDecoder(args)
         self.discriminator_unet = MultiDiscriminator(args)
-        #self.discriminator_vnet = MultiDiscriminator(args)#.to(self.device)
+        self.discriminator_vnet = MultiDiscriminator(args)#.to(self.device)
         self.mse_loss = nn.MSELoss()#.to(self.device)
         self.adv_loss = torch.nn.BCEWithLogitsLoss()#.to(self.device)
         self.aux_loss = LabelSmoothingCrossEntropy(0.1)#LabelSmoothing(self.smth)#torch.nn.CrossEntropyLoss(label_smoothing=self.smth)# 
@@ -121,7 +121,7 @@ class WaeGAN(LightningModule):
         self.generator_enc.apply(weights_init_normal)
         self.generator_dec.apply(weights_init_normal)
         self.discriminator_unet.apply(weights_init_normal)
-        #self.discriminator_vnet.apply(weights_init_normal)
+        self.discriminator_vnet.apply(weights_init_normal)
 
         self.k_enc = args.gp_lambda*args.k_wass
         self.no_sample = 0
@@ -180,7 +180,7 @@ class WaeGAN(LightningModule):
         # Get random interpolation between real and fake samples
         interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples)).requires_grad_(True)
         interpolates = interpolates.to(self.device)
-        d_interpolates = self.discriminator_unet.compute_out(interpolates)
+        d_interpolates = self.discriminator_vnet.compute_out(interpolates)
         fake = torch.Tensor(real_samples.shape[0], 1).fill_(1.0).to(self.device)
         # Get gradient w.r.t. interpolates
         gradients = torch.autograd.grad(
@@ -213,11 +213,11 @@ class WaeGAN(LightningModule):
       
         if optimizer_idx == 0 :
             frozen_params(self.discriminator_unet)
-            #frozen_params(self.discriminator_vnet)
+            frozen_params(self.discriminator_vnet)
             frozen_params(self.generator_enc)
             free_params(self.generator_dec)
              
-            generated, encoded, e1_, e2_ = self.generator_dec(self.generator_enc(real_A))#, z, labels)
+            generated, encoded, e1_, e2_ = self.generator_dec(self.generator_enc(real_A), z, labels)
            
             
             m_loss = self.mse_loss(real_B, generated) 
@@ -230,7 +230,7 @@ class WaeGAN(LightningModule):
 
             style_loss = (s_r)*(1 - self.criterion(real_B, generated)) + (1-s_r)* m_loss
            
-            h_loss = self.args.k_wass*( self.discriminator_unet(generated) )
+            h_loss = self.args.k_wass*( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )
             wass_loss = -torch.mean(h_loss)
             g_loss = (style_loss + wass_loss + e_loss)
 
@@ -251,7 +251,7 @@ class WaeGAN(LightningModule):
 
         elif optimizer_idx == 1:
             frozen_params(self.discriminator_unet)
-            #frozen_params(self.discriminator_vnet)
+            frozen_params(self.discriminator_vnet)
             free_params(self.generator_enc)
             frozen_params(self.generator_dec)
 
@@ -261,14 +261,14 @@ class WaeGAN(LightningModule):
             downstream = self.generator_enc(real_A)
             # e1_ = downstream[-2]
             # e2_ = downstream[-1]
-            generated, encoded, e1_, e2_ = self.generator_dec(downstream,z,labels)
+            generated, encoded, e1_, e2_ = self.generator_dec(downstream)
             downstream = self.generator_enc(aug_A)
             z1_ = downstream[-2]
             z2_ = downstream[-1]
            
             e_loss = self.mse_loss(real_B, encoded)
             m_loss = self.mse_loss(real_B, generated)
-            h_loss = self.args.k_wass*( self.discriminator_unet(generated) )
+            h_loss = self.args.k_wass*( self.discriminator_unet(generated) + self.discriminator_vnet(encoded) )
             wass_loss = -torch.mean(h_loss)
             real_aux, real_adv = e1_, e2_
             labels_onehot= torch.nn.functional.one_hot( labels, num_classes=self.n_classes).float()
@@ -280,7 +280,7 @@ class WaeGAN(LightningModule):
             gen_labels_onehot= torch.nn.functional.one_hot(gen_labels, num_classes=self.n_classes).float()
             gen_labels_onehot += torch.rand(labels_onehot.size(),device=self.device)
             
-            fake_loss = self.adv_loss(fake_adv,fake) + self.aux_loss(fake_aux, gen_labels_onehot)
+            fake_loss = self.adv_loss(fake_adv,fake) #+ self.aux_loss(fake_aux, gen_labels_onehot)
             
             self.target, _ = torch.mode(torch.argmax(e1_, dim=1))
             match = (torch.argmax(e1_, dim=1) == self.target).type(Tensor)
@@ -306,7 +306,7 @@ class WaeGAN(LightningModule):
 
         elif optimizer_idx == 2:
             free_params(self.discriminator_unet)
-            #frozen_params(self.discriminator_vnet)
+            frozen_params(self.discriminator_vnet)
             frozen_params(self.generator_enc)
             frozen_params(self.generator_dec)
 
@@ -344,8 +344,8 @@ class WaeGAN(LightningModule):
             return output
 
         elif optimizer_idx == 3:
-            #frozen_params(self.discriminator_unet)
-            free_params(self.discriminator_unet)
+            frozen_params(self.discriminator_unet)
+            free_params(self.discriminator_vnet)
             frozen_params(self.generator_enc)
             frozen_params(self.generator_dec)
 
@@ -355,17 +355,17 @@ class WaeGAN(LightningModule):
             #e2_ = downstream[-1]
             _, encoded, _, _ = self.generator_dec(downstream)
             
-            fv_loss = self.args.k_wass*self.discriminator_unet(real_B)
-            hv_loss = self.args.k_wass*self.discriminator_unet(encoded)
+            fv_loss = self.args.k_wass*self.discriminator_vnet(real_B)
+            hv_loss = self.args.k_wass*self.discriminator_vnet(encoded)
             dv_loss = (torch.mean(fv_loss) - torch.mean(hv_loss))
             
 
             if self.args.clip_weight:
                 
-                for p in self.discriminator_unet.parameters():
+                for p in self.discriminator_vnet.parameters():
                     p.data.clamp_(-self.args.clip_value, self.args.clip_value)
             else:
-                gradient_penalty = self.compute_gradient_penalty_u(real_B.data, encoded.data)
+                gradient_penalty = self.compute_gradient_penalty_v(real_B.data, encoded.data)
                 dv_loss -= self.args.gp_lambda* self.args.k_wass* gradient_penalty
             
             dv_loss = -dv_loss
@@ -400,13 +400,13 @@ class WaeGAN(LightningModule):
         opt_gd = torch.optim.Adam(self.generator_dec.parameters(), lr=lr)#, betas=(b1, b2))
         opt_ge = torch.optim.Adam(self.generator_enc.parameters(), lr=lr)#, betas=(b1, b2))
         opt_du = torch.optim.Adam(self.discriminator_unet.parameters(), lr=lr)#, betas=(b1, b2))
-        #opt_dv = torch.optim.Adam(self.discriminator_unet.parameters(), lr=lr)#, betas=(b1, b2))
+        opt_dv = torch.optim.Adam(self.discriminator_unet.parameters(), lr=lr)#, betas=(b1, b2))
         
         return (
             {'optimizer': opt_gd, 'frequency': 1},
             {'optimizer': opt_ge, 'frequency': self.n_critic},
             {'optimizer': opt_du, 'frequency': self.n_critic},
-            #{'optimizer': opt_dv, 'frequency': self.n_critic}
+            {'optimizer': opt_dv, 'frequency': self.n_critic}
         )
 
     def train_dataloader(self):
