@@ -291,7 +291,7 @@ class WaeGAN(LightningModule):
             self.log("fake loss",fake_loss)
             
 
-            genenc_loss = (real_loss + fake_loss)/4.0 + e_loss + m_loss + self.args.k_wass*(label_loss + wass_loss)
+            genenc_loss = (real_loss + fake_loss)/4.0 + e_loss + m_loss + self.args.k_wass*(wass_loss)#label_loss
             self.log("genenc loss",genenc_loss) 
 
             
