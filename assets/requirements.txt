@@ -5,4 +5,4 @@ opencv-python==3.4.1
 pandas==0.24.2
 scikit-learn==0.23.2
 matplotlib==3.3.2
-Pillow==8.4.0
+Pillow==9.2.0
